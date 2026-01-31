@@ -98,6 +98,27 @@ export type {
   CreateVoiceChannelParams,
   UpdateVoiceChannelParams,
 
+  // Chat
+  ConversationType,
+  MessageType,
+  ParticipantRole,
+  PresenceStatus,
+  ChatUser,
+  ChatUserWithPresence,
+  ConversationParticipant,
+  MessageRead,
+  ChatMessage,
+  Conversation,
+  CreateConversationParams,
+  SendChatMessageParams,
+  ListMessagesParams,
+  MessagesResponse,
+  AddAgentParams,
+  ConversationAgent,
+  UserPresence,
+  UpdatePresenceParams,
+  ListUsersParams,
+
   // Errors
   VeroAIErrorDetails,
 } from './types';
@@ -118,6 +139,9 @@ export {
 
 // Voice
 export { VoiceResource, VoiceNumbersResource, VoiceCallsResource } from './resources';
+
+// Chat
+export { ChatResource, ConversationsResource, ChatUsersResource } from './resources';
 
 // Realtime
 export { RealtimeResource, createRealtimeResource } from './realtime';

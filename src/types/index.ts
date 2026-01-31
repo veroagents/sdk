@@ -814,6 +814,127 @@ export interface ListAgentCallsParams extends PaginationParams {
 }
 
 // ============================================================================
+// Chat - Conversations
+// ============================================================================
+
+export type ConversationType = 'direct' | 'group' | 'channel' | 'support';
+export type MessageType = 'text' | 'system' | 'agent' | 'file' | 'call';
+export type ParticipantRole = 'admin' | 'member' | 'guest';
+export type PresenceStatus = 'online' | 'away' | 'busy' | 'offline';
+
+export interface ChatUser {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  isVirtual: boolean;
+  agentConfigId?: string | null;
+}
+
+export interface ChatUserWithPresence extends ChatUser {
+  status: PresenceStatus;
+  statusMessage: string | null;
+  lastSeen: string | null;
+  createdAt: string;
+}
+
+export interface ConversationParticipant {
+  userId: string;
+  role: ParticipantRole;
+  isActive: boolean;
+  joinedAt: string;
+  lastSeen?: string | null;
+  user?: ChatUser;
+}
+
+export interface MessageRead {
+  userId: string;
+  readAt: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  conversationId: string;
+  content: string;
+  messageType: MessageType;
+  senderId: string;
+  sender?: ChatUser;
+  readBy?: MessageRead[];
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  editedAt?: string | null;
+}
+
+export interface Conversation {
+  id: string;
+  name: string | null;
+  type: ConversationType;
+  isActive: boolean;
+  lastMessageAt: string | null;
+  agentEnabled: boolean;
+  agentConfigId: string | null;
+  participants?: ConversationParticipant[];
+  unreadCount: number;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateConversationParams {
+  type?: ConversationType;
+  name?: string;
+  participantIds: string[];
+  agentConfigId?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface SendChatMessageParams {
+  content: string;
+  messageType?: MessageType;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ListMessagesParams extends PaginationParams {
+  before?: string | Date;
+}
+
+export interface MessagesResponse {
+  messages: ChatMessage[];
+  total: number;
+  hasMore: boolean;
+}
+
+export interface AddAgentParams {
+  agentConfigId: string;
+  addAsParticipant?: boolean;
+}
+
+export interface ConversationAgent {
+  configId: string;
+  name: string;
+  userId: string | null;
+  enabled: boolean;
+}
+
+export interface UserPresence {
+  userId: string;
+  status: PresenceStatus;
+  statusMessage: string | null;
+  lastSeen: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdatePresenceParams {
+  status: PresenceStatus;
+  statusMessage?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ListUsersParams extends PaginationParams {
+  includeVirtual?: boolean;
+}
+
+// ============================================================================
 // Errors
 // ============================================================================
 

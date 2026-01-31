@@ -37,6 +37,7 @@ import {
   ApiKeysResource,
   DomainsResource,
   VoiceResource,
+  ChatResource,
 } from './resources';
 import { AgentsResource } from './resources/agents';
 import { RealtimeResource } from './realtime';
@@ -68,6 +69,9 @@ export class VeroAI {
 
   /** AI agent configurations */
   readonly agents: AgentsResource;
+
+  /** Chat conversations and users */
+  readonly chat: ChatResource;
 
   /** Real-time event subscriptions via WebSocket */
   readonly realtime: RealtimeResource;
@@ -107,6 +111,7 @@ export class VeroAI {
     this.domains = new DomainsResource(this.http);
     this.voice = new VoiceResource(this.http);
     this.agents = new AgentsResource(this.http);
+    this.chat = new ChatResource(this.http);
 
     // Create token fetcher for realtime - exchanges API key for short-lived WebSocket JWT
     const tokenFetcher = async (): Promise<string> => {
