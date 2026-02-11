@@ -78,6 +78,9 @@ export class VoiceRoomsResource {
   async create(params: CreateRoomParams): Promise<LiveKitRoomInfo> {
     const response = await this.http.post<CreateRoomResponse>('/voice/rooms', {
       name: params.name,
+      room_id: params.roomId,
+      channel_id: params.channelId,
+      agent_config_id: params.agentConfigId,
       empty_timeout: params.emptyTimeout,
       max_participants: params.maxParticipants,
       metadata: params.metadata,

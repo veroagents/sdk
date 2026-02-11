@@ -543,6 +543,12 @@ export interface UpdateVoiceChannelParams {
 export interface CreateRoomParams {
   /** Room name (unique identifier) */
   name: string;
+  /** Optional custom room ID (defaults to generated UUID) */
+  roomId?: string;
+  /** Optional channel ID to associate with the room */
+  channelId?: string;
+  /** Optional agent config ID — when provided, the server fetches the full agent config and embeds it in room metadata */
+  agentConfigId?: string;
   /** Time in seconds before empty room is deleted (default: 300) */
   emptyTimeout?: number;
   /** Maximum number of participants (default: 10) */
