@@ -814,6 +814,8 @@ export interface AgentConfig {
   backgroundNoise?: string;
   /** Typing noise enabled */
   typingNoise?: boolean;
+  /** Voice ID for TTS */
+  voiceId?: string;
   /** Status */
   status: 'draft' | 'active' | 'archived';
 }
@@ -843,6 +845,8 @@ export interface CreateAgentParams {
   backgroundNoise?: string;
   /** Typing noise enabled */
   typingNoise?: boolean;
+  /** Voice ID for TTS */
+  voiceId?: string;
   /** Whether to enable immediately */
   enabled?: boolean;
 }
@@ -865,6 +869,8 @@ export interface UpdateAgentParams {
   backgroundNoise?: string;
   /** Typing noise enabled */
   typingNoise?: boolean;
+  /** Voice ID for TTS */
+  voiceId?: string;
   /** Whether agent is enabled */
   enabled?: boolean;
   /** Status */

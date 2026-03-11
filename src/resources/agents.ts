@@ -30,6 +30,7 @@ interface AgentResponse {
   system_prompt: string;
   background_noise: string | null;
   typing_noise: boolean | null;
+  voice_id?: string | null;
   status: 'draft' | 'active' | 'archived';
   version: number;
   created_at: string;
@@ -58,6 +59,7 @@ function transformAgent(agent: AgentResponse): AgentConfig {
     systemPrompt: agent.system_prompt,
     backgroundNoise: agent.background_noise ?? 'none',
     typingNoise: agent.typing_noise ?? false,
+    voiceId: agent.voice_id ?? undefined,
     status: agent.status,
   };
 }
@@ -144,6 +146,7 @@ export class AgentsResource {
       system_prompt: params.systemPrompt,
       background_noise: params.backgroundNoise,
       typing_noise: params.typingNoise,
+      voice_id: params.voiceId,
       enabled: params.enabled ?? false,
     });
     return transformAgent(response.agent);
@@ -170,6 +173,7 @@ export class AgentsResource {
     if (params.status !== undefined) body.status = params.status;
     if (params.backgroundNoise !== undefined) body.background_noise = params.backgroundNoise;
     if (params.typingNoise !== undefined) body.typing_noise = params.typingNoise;
+    if (params.voiceId !== undefined) body.voice_id = params.voiceId;
 
     if (params.modelConfig) {
       body.model_config = {
