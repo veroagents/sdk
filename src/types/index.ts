@@ -441,6 +441,74 @@ export interface ListNumbersParams extends PaginationParams {
 }
 
 // ============================================================================
+// Voice - Carriers
+// ============================================================================
+
+export type CarrierTrunkType = 'inbound' | 'outbound' | 'both';
+export type CarrierStatus = 'active' | 'inactive';
+
+export interface VoiceCarrier {
+  id: string;
+  name: string;
+  sipHost: string;
+  sipPort: number;
+  sipUsername: string | null;
+  sipRegister: boolean;
+  sipRealm: string | null;
+  registerFromUser: string | null;
+  registerFromDomain: string | null;
+  e164LeadingPlus: boolean;
+  trunkType: CarrierTrunkType;
+  status: CarrierStatus;
+  jambonzCarrierSid: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VoiceCarrierCreateParams {
+  name: string;
+  sipHost: string;
+  sipPort?: number;
+  sipUsername?: string;
+  sipPassword?: string;
+  sipRegister?: boolean;
+  sipRealm?: string;
+  registerFromUser?: string;
+  registerFromDomain?: string;
+  e164LeadingPlus?: boolean;
+  trunkType: CarrierTrunkType;
+}
+
+export interface VoiceCarrierUpdateParams {
+  name?: string;
+  sipHost?: string;
+  sipPort?: number;
+  sipUsername?: string;
+  sipPassword?: string | null;
+  sipRegister?: boolean;
+  sipRealm?: string;
+  registerFromUser?: string;
+  registerFromDomain?: string;
+  e164LeadingPlus?: boolean;
+  trunkType?: CarrierTrunkType;
+  status?: CarrierStatus;
+}
+
+export interface ListCarriersParams extends PaginationParams {
+  trunkType?: CarrierTrunkType;
+  status?: CarrierStatus;
+}
+
+export interface PredefinedCarrier {
+  sid: string;
+  name: string;
+  description?: string;
+  requiresRegister: boolean;
+  e164LeadingPlus: boolean;
+  registerSipRealm?: string;
+}
+
+// ============================================================================
 // Voice - Calls
 // ============================================================================
 
@@ -742,6 +810,10 @@ export interface AgentConfig {
   };
   /** System prompt */
   systemPrompt: string;
+  /** Background noise setting */
+  backgroundNoise?: string;
+  /** Typing noise enabled */
+  typingNoise?: boolean;
   /** Status */
   status: 'draft' | 'active' | 'archived';
 }
@@ -767,6 +839,10 @@ export interface CreateAgentParams {
   };
   /** System prompt */
   systemPrompt: string;
+  /** Background noise setting */
+  backgroundNoise?: string;
+  /** Typing noise enabled */
+  typingNoise?: boolean;
   /** Whether to enable immediately */
   enabled?: boolean;
 }
@@ -785,6 +861,10 @@ export interface UpdateAgentParams {
   };
   /** System prompt */
   systemPrompt?: string;
+  /** Background noise setting */
+  backgroundNoise?: string;
+  /** Typing noise enabled */
+  typingNoise?: boolean;
   /** Whether agent is enabled */
   enabled?: boolean;
   /** Status */

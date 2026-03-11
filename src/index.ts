@@ -80,6 +80,15 @@ export type {
   UpdateNumberParams,
   ListNumbersParams,
 
+  // Voice - Carriers
+  CarrierTrunkType,
+  CarrierStatus,
+  VoiceCarrier,
+  VoiceCarrierCreateParams,
+  VoiceCarrierUpdateParams,
+  ListCarriersParams,
+  PredefinedCarrier,
+
   // Voice - Calls
   CallDirection,
   CallStatus,
@@ -117,7 +126,7 @@ export {
 } from './utils/errors';
 
 // Voice
-export { VoiceResource, VoiceNumbersResource, VoiceCallsResource } from './resources';
+export { VoiceResource, VoiceNumbersResource, VoiceCallsResource, VoiceCarriersResource } from './resources';
 
 // Realtime
 export { RealtimeResource, createRealtimeResource } from './realtime';

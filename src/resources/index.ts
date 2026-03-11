@@ -4,4 +4,4 @@ export { MessagesResource } from './messages';
 export { WebhooksResource } from './webhooks';
 export { ApiKeysResource } from './api-keys';
 export { DomainsResource } from './domains';
-export { VoiceResource, VoiceNumbersResource, VoiceCallsResource } from './voice';
+export { VoiceResource, VoiceNumbersResource, VoiceCallsResource, VoiceCarriersResource } from './voice';

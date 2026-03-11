@@ -28,6 +28,8 @@ interface AgentResponse {
     max_tokens: number;
   };
   system_prompt: string;
+  background_noise: string | null;
+  typing_noise: boolean | null;
   status: 'draft' | 'active' | 'archived';
   version: number;
   created_at: string;
@@ -54,6 +56,8 @@ function transformAgent(agent: AgentResponse): AgentConfig {
       maxTokens: agent.model_config.max_tokens,
     },
     systemPrompt: agent.system_prompt,
+    backgroundNoise: agent.background_noise ?? 'none',
+    typingNoise: agent.typing_noise ?? false,
     status: agent.status,
   };
 }
@@ -81,7 +85,7 @@ export class AgentsResource {
 
     const query = searchParams.toString();
     const response = await this.http.get<ListAgentsResponse>(
-      `/agents${query ? `?${query}` : ''}`
+      `/v1/agents${query ? `?${query}` : ''}`
     );
 
     return {
@@ -105,7 +109,7 @@ export class AgentsResource {
    */
   async get(agentId: string): Promise<AgentConfig> {
     const response = await this.http.get<{ agent: AgentResponse }>(
-      `/agents/${encodeURIComponent(agentId)}`
+      `/v1/agents/${encodeURIComponent(agentId)}`
     );
     return transformAgent(response.agent);
   }
@@ -128,7 +132,7 @@ export class AgentsResource {
    * ```
    */
   async create(params: CreateAgentParams): Promise<AgentConfig> {
-    const response = await this.http.post<{ agent: AgentResponse }>('/agents', {
+    const response = await this.http.post<{ agent: AgentResponse }>('/v1/agents', {
       name: params.name,
       description: params.description,
       model_config: {
@@ -138,6 +142,8 @@ export class AgentsResource {
         max_tokens: params.modelConfig.maxTokens ?? 4096,
       },
       system_prompt: params.systemPrompt,
+      background_noise: params.backgroundNoise,
+      typing_noise: params.typingNoise,
       enabled: params.enabled ?? false,
     });
     return transformAgent(response.agent);
@@ -162,6 +168,8 @@ export class AgentsResource {
     if (params.systemPrompt !== undefined) body.system_prompt = params.systemPrompt;
     if (params.enabled !== undefined) body.enabled = params.enabled;
     if (params.status !== undefined) body.status = params.status;
+    if (params.backgroundNoise !== undefined) body.background_noise = params.backgroundNoise;
+    if (params.typingNoise !== undefined) body.typing_noise = params.typingNoise;
 
     if (params.modelConfig) {
       body.model_config = {
@@ -173,7 +181,7 @@ export class AgentsResource {
     }
 
     const response = await this.http.patch<{ agent: AgentResponse }>(
-      `/agents/${encodeURIComponent(agentId)}`,
+      `/v1/agents/${encodeURIComponent(agentId)}`,
       body
     );
     return transformAgent(response.agent);
@@ -188,7 +196,7 @@ export class AgentsResource {
    * ```
    */
   async delete(agentId: string): Promise<void> {
-    await this.http.delete(`/agents/${encodeURIComponent(agentId)}`);
+    await this.http.delete(`/v1/agents/${encodeURIComponent(agentId)}`);
   }
 
   /**

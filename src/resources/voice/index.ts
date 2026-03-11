@@ -8,6 +8,7 @@ import type { HttpClient } from '../../utils/http';
 import { VoiceNumbersResource } from './numbers';
 import { VoiceCallsResource } from './calls';
 import { VoiceRoomsResource } from './rooms';
+import { VoiceCarriersResource } from './carriers';
 
 export class VoiceResource {
   /**
@@ -25,10 +26,16 @@ export class VoiceResource {
    */
   readonly rooms: VoiceRoomsResource;
 
+  /**
+   * SIP trunk carrier management
+   */
+  readonly carriers: VoiceCarriersResource;
+
   constructor(http: HttpClient) {
     this.numbers = new VoiceNumbersResource(http);
     this.calls = new VoiceCallsResource(http);
     this.rooms = new VoiceRoomsResource(http);
+    this.carriers = new VoiceCarriersResource(http);
   }
 }
 
@@ -36,3 +43,4 @@ export class VoiceResource {
 export { VoiceNumbersResource } from './numbers';
 export { VoiceCallsResource } from './calls';
 export { VoiceRoomsResource } from './rooms';
+export { VoiceCarriersResource } from './carriers';
