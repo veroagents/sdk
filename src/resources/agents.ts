@@ -59,7 +59,7 @@ function transformAgent(agent: AgentResponse): AgentConfig {
     systemPrompt: agent.system_prompt,
     backgroundNoise: agent.background_noise ?? 'none',
     typingNoise: agent.typing_noise ?? false,
-    voiceId: agent.voice_id ?? undefined,
+    voiceId: agent.voice_id ?? null,
     status: agent.status,
   };
 }

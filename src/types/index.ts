@@ -815,7 +815,7 @@ export interface AgentConfig {
   /** Typing noise enabled */
   typingNoise?: boolean;
   /** Voice ID for TTS */
-  voiceId?: string;
+  voiceId?: string | null;
   /** Status */
   status: 'draft' | 'active' | 'archived';
 }
