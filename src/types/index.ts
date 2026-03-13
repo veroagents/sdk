@@ -398,6 +398,7 @@ export interface PhoneNumber {
   capabilities: PhoneNumberCapability[];
   channelId: string | null;
   channelName?: string | null;
+  applicationSid: string | null;
   status: PhoneNumberStatus;
   monthlyCostCents: number | null;
   setupCostCents: number | null;
@@ -431,6 +432,7 @@ export interface PurchaseNumberParams {
 
 export interface UpdateNumberParams {
   channelId?: string | null;
+  applicationSid?: string | null;
 }
 
 export interface ListNumbersParams extends PaginationParams {
@@ -438,6 +440,42 @@ export interface ListNumbersParams extends PaginationParams {
   status?: PhoneNumberStatus;
   country?: string;
   capabilities?: PhoneNumberCapability[];
+}
+
+// ============================================================================
+// Voice - Applications
+// ============================================================================
+
+export interface VoiceApplication {
+  applicationSid: string;
+  name: string;
+  accountSid: string;
+  callHook: { url: string; method: string; webhook_sid?: string } | null;
+  callStatusHook: { url: string; method: string; webhook_sid?: string } | null;
+  speechSynthesisVendor: string | null;
+  speechSynthesisVoice: string | null;
+  speechRecognizerVendor: string | null;
+  speechRecognizerLanguage: string | null;
+}
+
+export interface CreateApplicationParams {
+  name: string;
+  callHookUrl: string;
+  callStatusHookUrl?: string;
+  speechSynthesisVendor?: string;
+  speechSynthesisVoice?: string;
+  speechRecognizerVendor?: string;
+  speechRecognizerLanguage?: string;
+}
+
+export interface UpdateApplicationParams {
+  name?: string;
+  callHookUrl?: string;
+  callStatusHookUrl?: string;
+  speechSynthesisVendor?: string;
+  speechSynthesisVoice?: string;
+  speechRecognizerVendor?: string;
+  speechRecognizerLanguage?: string;
 }
 
 // ============================================================================

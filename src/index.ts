@@ -70,6 +70,11 @@ export type {
   EnrichmentResult,
   ExtractedEntity,
 
+  // Voice - Applications
+  VoiceApplication,
+  CreateApplicationParams,
+  UpdateApplicationParams,
+
   // Voice - Phone Numbers
   PhoneNumberStatus,
   PhoneNumberCapability,
@@ -126,7 +131,7 @@ export {
 } from './utils/errors';
 
 // Voice
-export { VoiceResource, VoiceNumbersResource, VoiceCallsResource, VoiceCarriersResource } from './resources';
+export { VoiceResource, VoiceNumbersResource, VoiceCallsResource, VoiceCarriersResource, VoiceApplicationsResource } from './resources';
 
 // Realtime
 export { RealtimeResource, createRealtimeResource } from './realtime';

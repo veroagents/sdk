@@ -25,6 +25,7 @@ interface ApiPhoneNumber {
   capabilities: string[];
   channel_id: string | null;
   channel_name?: string | null;
+  application_sid?: string | null;
   status: string;
   monthly_cost_cents: number | null;
   setup_cost_cents: number | null;
@@ -78,6 +79,7 @@ function transformPhoneNumber(data: ApiPhoneNumber): PhoneNumber {
     capabilities: data.capabilities as PhoneNumber['capabilities'],
     channelId: data.channel_id,
     channelName: data.channel_name,
+    applicationSid: data.application_sid ?? null,
     status: data.status as PhoneNumber['status'],
     monthlyCostCents: data.monthly_cost_cents,
     setupCostCents: data.setup_cost_cents,
@@ -162,9 +164,10 @@ export class VoiceNumbersResource {
    * Update a phone number (assign/unassign to channel)
    */
   async update(numberId: string, params: UpdateNumberParams): Promise<PhoneNumber> {
-    const response = await this.http.patch<UpdateNumberApiResponse>(`/v1/voice/numbers/${numberId}`, {
-      channel_id: params.channelId,
-    });
+    const body: Record<string, unknown> = {};
+    if (params.channelId !== undefined) body.channel_id = params.channelId;
+    if (params.applicationSid !== undefined) body.application_sid = params.applicationSid;
+    const response = await this.http.patch<UpdateNumberApiResponse>(`/v1/voice/numbers/${numberId}`, body);
     return transformPhoneNumber(response.number);
   }
 
