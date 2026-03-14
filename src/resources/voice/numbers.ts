@@ -10,6 +10,7 @@ import type {
   AvailableNumber,
   SearchNumbersParams,
   PurchaseNumberParams,
+  AddNumberParams,
   UpdateNumberParams,
   ListNumbersParams,
   PaginatedResponse,
@@ -122,11 +123,28 @@ export class VoiceNumbersResource {
   }
 
   /**
-   * Purchase a phone number
+   * Purchase a phone number from DIDWW
    */
   async purchase(params: PurchaseNumberParams): Promise<PhoneNumber> {
     const response = await this.http.post<PurchaseNumberApiResponse>('/v1/voice/numbers/purchase', {
+      did_group_id: params.didGroupId,
+      carrier_id: params.carrierId,
+      channel_id: params.channelId,
+    });
+    return transformPhoneNumber(response.number);
+  }
+
+  /**
+   * Manually add a phone number (provisions in Jambonz)
+   */
+  async add(params: AddNumberParams): Promise<PhoneNumber> {
+    const response = await this.http.post<PurchaseNumberApiResponse>('/v1/voice/numbers', {
       number: params.number,
+      country: params.country,
+      region: params.region,
+      locality: params.locality,
+      capabilities: params.capabilities,
+      carrier_id: params.carrierId,
       channel_id: params.channelId,
     });
     return transformPhoneNumber(response.number);

@@ -426,7 +426,22 @@ export interface SearchNumbersParams {
 }
 
 export interface PurchaseNumberParams {
+  /** DID group ID from search results (for DIDWW purchase) */
+  didGroupId: string;
+  carrierId?: string;
+  channelId?: string;
+}
+
+export interface AddNumberParams {
+  /** Phone number in E.164 format */
   number: string;
+  /** ISO 3166-1 alpha-2 country code */
+  country: string;
+  region?: string;
+  locality?: string;
+  capabilities?: PhoneNumberCapability[];
+  /** Carrier ID (required for Jambonz provisioning) */
+  carrierId: string;
   channelId?: string;
 }
 

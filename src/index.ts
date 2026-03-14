@@ -82,6 +82,7 @@ export type {
   AvailableNumber,
   SearchNumbersParams,
   PurchaseNumberParams,
+  AddNumberParams,
   UpdateNumberParams,
   ListNumbersParams,
 
