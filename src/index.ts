@@ -113,6 +113,15 @@ export type {
   CreateVoiceChannelParams,
   UpdateVoiceChannelParams,
 
+  // Agents
+  Agent,
+  ListAgentsParams,
+  CreateAgentParams,
+  UpdateAgentParams,
+
+  // Messaging
+  MessagingToken,
+
   // Errors
   VeroAIErrorDetails,
 } from './types';
@@ -130,6 +139,10 @@ export {
   TimeoutError,
   NetworkError,
 } from './utils/errors';
+
+// Resources
+export { AgentsResource } from './resources/agents';
+export { MessagingResource } from './resources/messaging';
 
 // Voice
 export { VoiceResource, VoiceNumbersResource, VoiceCallsResource, VoiceCarriersResource, VoiceApplicationsResource } from './resources';

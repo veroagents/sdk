@@ -114,7 +114,7 @@ export type ErrorHandler = (error: Error) => void;
  * Realtime configuration options
  */
 export interface RealtimeConfig {
-  /** WebSocket URL (default: wss://realtime.veroai.dev/ws) */
+  /** WebSocket URL (default: wss://events.veroagents.com/ws) */
   url?: string;
   /** Auto-reconnect on disconnect (default: true) */
   autoReconnect?: boolean;

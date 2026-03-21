@@ -9,7 +9,7 @@
 export interface VeroAIConfig {
   /** API key (sk_live_*, sk_test_*, or sk_dev_*) */
   apiKey: string;
-  /** Base URL for API requests (default: https://api.veroai.dev) */
+  /** Base URL for API requests (default: https://api.veroagents.com) */
   baseUrl?: string;
   /** Request timeout in milliseconds (default: 30000) */
   timeout?: number;
@@ -842,92 +842,87 @@ export interface VoiceSessionEvents {
 }
 
 // ============================================================================
-// Voice - AI Agent Integration
+// Agents (agentsrv flat format)
 // ============================================================================
 
-export interface AgentConfig {
-  /** Agent configuration ID */
+export interface Agent {
   id: string;
-  /** Agent name */
-  name: string;
-  /** Agent description */
-  description: string | null;
-  /** Whether agent is enabled */
-  enabled: boolean;
-  /** Model configuration */
-  modelConfig: {
-    provider: 'anthropic' | 'openai';
-    modelId: string;
-    temperature: number;
-    maxTokens: number;
-  };
-  /** System prompt */
+  tenantId: string;
+  ownerUserId: string;
+  displayName: string;
+  avatarUrl?: string;
+  agentType: string;
+  model: string;
+  promptMode: string;
   systemPrompt: string;
-  /** Background noise setting */
-  backgroundNoise?: string;
-  /** Typing noise enabled */
-  typingNoise?: boolean;
-  /** Voice ID for TTS */
-  voiceId?: string | null;
-  /** Status */
-  status: 'draft' | 'active' | 'archived';
+  jobTitle?: string;
+  voiceId?: string;
+  language: string;
+  backgroundNoise: string;
+  typingNoise: boolean;
+  autoTrigger: boolean;
+  status: 'active' | 'archived';
+  scope: string;
+  createdAt: string;
 }
 
-export interface ListAgentsParams extends PaginationParams {
+export interface ListAgentsParams {
   /** Filter by status */
-  status?: 'draft' | 'active' | 'archived';
-  /** Filter by enabled state */
-  enabled?: boolean;
+  status?: 'active' | 'archived';
 }
 
 export interface CreateAgentParams {
-  /** Agent name */
-  name: string;
-  /** Agent description */
-  description?: string;
-  /** Model configuration */
-  modelConfig: {
-    provider: 'anthropic' | 'openai';
-    modelId: string;
-    temperature?: number;
-    maxTokens?: number;
-  };
+  /** Agent display name */
+  displayName: string;
+  /** Role template ID */
+  roleId?: string;
+  /** Agent type (e.g. 'assistant') */
+  agentType?: string;
+  /** Model identifier */
+  model?: string;
   /** System prompt */
-  systemPrompt: string;
+  systemPrompt?: string;
+  /** Avatar URL */
+  avatarUrl?: string;
+  /** Voice ID for TTS */
+  voiceId?: string;
+  /** Language code */
+  language?: string;
   /** Background noise setting */
   backgroundNoise?: string;
   /** Typing noise enabled */
   typingNoise?: boolean;
-  /** Voice ID for TTS */
-  voiceId?: string;
-  /** Whether to enable immediately */
-  enabled?: boolean;
+  /** Auto-trigger enabled */
+  autoTrigger?: boolean;
 }
 
 export interface UpdateAgentParams {
-  /** Agent name */
-  name?: string;
-  /** Agent description */
-  description?: string;
-  /** Model configuration */
-  modelConfig?: {
-    provider?: 'anthropic' | 'openai';
-    modelId?: string;
-    temperature?: number;
-    maxTokens?: number;
-  };
+  /** Agent display name */
+  displayName?: string;
+  /** Avatar URL */
+  avatarUrl?: string;
+  /** Agent type */
+  agentType?: string;
+  /** Model identifier */
+  model?: string;
+  /** Prompt mode */
+  promptMode?: string;
   /** System prompt */
   systemPrompt?: string;
+  /** Job title */
+  jobTitle?: string;
+  /** Voice ID for TTS */
+  voiceId?: string;
+  /** Language code */
+  language?: string;
   /** Background noise setting */
   backgroundNoise?: string;
   /** Typing noise enabled */
   typingNoise?: boolean;
-  /** Voice ID for TTS */
-  voiceId?: string;
-  /** Whether agent is enabled */
-  enabled?: boolean;
-  /** Status */
-  status?: 'draft' | 'active' | 'archived';
+  /** Auto-trigger enabled */
+  autoTrigger?: boolean;
+  /** Scope */
+  scope?: string;
 }
 
 export interface AgentCallSession {
@@ -956,6 +951,35 @@ export interface ListAgentCallsParams extends PaginationParams {
   channelId?: string;
   /** Filter by status */
   status?: 'connecting' | 'active' | 'ended';
+}
+
+// ============================================================================
+// Messaging
+// ============================================================================
+
+export interface MessagingToken {
+  /** Short-lived WebSocket token */
+  token: string;
+  /** WebSocket URL for chat messaging */
+  wsUrl: string;
+  /** Token expiration timestamp */
+  expiresAt: string;
+}
+
+// ============================================================================
+// Attachments
+// ============================================================================
+
+export interface Attachment {
+  id: string;
+  tenantId: string;
+  channelId: string;
+  eventId: string;
+  filename: string | null;
+  contentType: string;
+  sizeBytes: number;
+  contentId: string | null;
+  createdAt: string;
 }
 
 // ============================================================================

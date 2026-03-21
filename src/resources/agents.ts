@@ -1,66 +1,54 @@
 /**
  * Agents Resource
  *
- * Manage AI agent configurations for voice and messaging
+ * Manage AI agents via the agentsrv REST API (proxied through api.veroagents.com)
  */
 
 import type { HttpClient } from '../utils/http';
-import type {
-  AgentConfig,
-  ListAgentsParams,
-  CreateAgentParams,
-  UpdateAgentParams,
-  PaginatedResponse,
-} from '../types';
+import type { Agent, ListAgentsParams, CreateAgentParams, UpdateAgentParams } from '../types';
 
-// API response types (snake_case from server)
-interface AgentResponse {
+// Server response (snake_case from agentsrv)
+interface AgentServerResponse {
   id: string;
   tenant_id: string;
-  name: string;
-  description: string | null;
-  enabled: boolean;
-  is_default: boolean;
-  model_config: {
-    provider: 'anthropic' | 'openai';
-    model_id: string;
-    temperature: number;
-    max_tokens: number;
-  };
+  owner_user_id: string;
+  display_name: string;
+  avatar_url: string;
+  agent_type: string;
+  model: string;
+  prompt_mode: string;
   system_prompt: string;
-  background_noise: string | null;
-  typing_noise: boolean | null;
-  voice_id?: string | null;
-  status: 'draft' | 'active' | 'archived';
-  version: number;
+  job_title: string;
+  voice_id: string;
+  language: string;
+  background_noise: string;
+  typing_noise: boolean;
+  auto_trigger: boolean;
+  status: string;
+  scope: string;
   created_at: string;
-  updated_at: string;
 }
 
-interface ListAgentsResponse {
-  agents: AgentResponse[];
-  total: number;
-  limit: number;
-  offset: number;
-}
-
-function transformAgent(agent: AgentResponse): AgentConfig {
+function transformAgent(a: AgentServerResponse): Agent {
   return {
-    id: agent.id,
-    name: agent.name,
-    description: agent.description,
-    enabled: agent.enabled,
-    modelConfig: {
-      provider: agent.model_config.provider,
-      modelId: agent.model_config.model_id,
-      temperature: agent.model_config.temperature,
-      maxTokens: agent.model_config.max_tokens,
-    },
-    systemPrompt: agent.system_prompt,
-    backgroundNoise: agent.background_noise ?? 'none',
-    typingNoise: agent.typing_noise ?? false,
-    voiceId: agent.voice_id ?? null,
-    status: agent.status,
+    id: a.id,
+    tenantId: a.tenant_id,
+    ownerUserId: a.owner_user_id,
+    displayName: a.display_name,
+    avatarUrl: a.avatar_url || undefined,
+    agentType: a.agent_type,
+    model: a.model,
+    promptMode: a.prompt_mode,
+    systemPrompt: a.system_prompt,
+    jobTitle: a.job_title || undefined,
+    voiceId: a.voice_id || undefined,
+    language: a.language,
+    backgroundNoise: a.background_noise,
+    typingNoise: a.typing_noise,
+    autoTrigger: a.auto_trigger,
+    status: a.status as Agent['status'],
+    scope: a.scope,
+    createdAt: a.created_at,
   };
 }
 
@@ -72,32 +60,17 @@ export class AgentsResource {
    *
    * @example
    * ```typescript
-   * const agents = await veroai.agents.list({ status: 'active' });
-   * for (const agent of agents.data) {
-   *   console.log(`${agent.name} (${agent.modelConfig.provider})`);
+   * const { agents } = await veroai.agents.list({ status: 'active' });
+   * for (const agent of agents) {
+   *   console.log(`${agent.displayName} (${agent.model})`);
    * }
    * ```
    */
-  async list(params?: ListAgentsParams): Promise<PaginatedResponse<AgentConfig>> {
-    const searchParams = new URLSearchParams();
-    if (params?.status) searchParams.set('status', params.status);
-    if (params?.enabled !== undefined) searchParams.set('enabled', String(params.enabled));
-    if (params?.limit) searchParams.set('limit', String(params.limit));
-    if (params?.offset) searchParams.set('offset', String(params.offset));
-
-    const query = searchParams.toString();
-    const response = await this.http.get<ListAgentsResponse>(
-      `/v1/agents${query ? `?${query}` : ''}`
-    );
-
-    return {
-      data: response.agents.map(transformAgent),
-      total: response.total,
-      hasMore: response.offset + response.agents.length < response.total,
-      nextOffset: response.offset + response.agents.length < response.total
-        ? response.offset + response.limit
-        : undefined,
-    };
+  async list(params?: ListAgentsParams): Promise<{ agents: Agent[] }> {
+    const query: Record<string, string> = {};
+    if (params?.status) query.status = params.status;
+    const response = await this.http.get<{ agents: AgentServerResponse[] }>('/v1/agents', query);
+    return { agents: response.agents.map(transformAgent) };
   }
 
   /**
@@ -105,15 +78,13 @@ export class AgentsResource {
    *
    * @example
    * ```typescript
-   * const agent = await veroai.agents.get('agent_123');
+   * const agent = await veroai.agents.get('uuid-here');
    * console.log(`System prompt: ${agent.systemPrompt}`);
    * ```
    */
-  async get(agentId: string): Promise<AgentConfig> {
-    const response = await this.http.get<{ agent: AgentResponse }>(
-      `/v1/agents/${encodeURIComponent(agentId)}`
-    );
-    return transformAgent(response.agent);
+  async get(agentId: string): Promise<Agent> {
+    const response = await this.http.get<AgentServerResponse>(`/v1/agents/${encodeURIComponent(agentId)}`);
+    return transformAgent(response);
   }
 
   /**
@@ -122,34 +93,29 @@ export class AgentsResource {
    * @example
    * ```typescript
    * const agent = await veroai.agents.create({
-   *   name: 'Support Agent',
-   *   modelConfig: {
-   *     provider: 'anthropic',
-   *     modelId: 'claude-3-5-sonnet-20241022',
-   *     temperature: 0.7,
-   *   },
+   *   displayName: 'Support Agent',
+   *   model: 'claude-sonnet-4-20250514',
    *   systemPrompt: 'You are a helpful support agent...',
-   *   enabled: true,
    * });
    * ```
    */
-  async create(params: CreateAgentParams): Promise<AgentConfig> {
-    const response = await this.http.post<{ agent: AgentResponse }>('/v1/agents', {
-      name: params.name,
-      description: params.description,
-      model_config: {
-        provider: params.modelConfig.provider,
-        model_id: params.modelConfig.modelId,
-        temperature: params.modelConfig.temperature ?? 0.7,
-        max_tokens: params.modelConfig.maxTokens ?? 4096,
-      },
-      system_prompt: params.systemPrompt,
-      background_noise: params.backgroundNoise,
-      typing_noise: params.typingNoise,
-      voice_id: params.voiceId,
-      enabled: params.enabled ?? false,
-    });
-    return transformAgent(response.agent);
+  async create(params: CreateAgentParams): Promise<Agent> {
+    const body: Record<string, unknown> = {
+      display_name: params.displayName,
+    };
+    if (params.roleId !== undefined) body.role_id = params.roleId;
+    if (params.agentType !== undefined) body.agent_type = params.agentType;
+    if (params.model !== undefined) body.model = params.model;
+    if (params.systemPrompt !== undefined) body.system_prompt = params.systemPrompt;
+    if (params.avatarUrl !== undefined) body.avatar_url = params.avatarUrl;
+    if (params.voiceId !== undefined) body.voice_id = params.voiceId;
+    if (params.language !== undefined) body.language = params.language;
+    if (params.backgroundNoise !== undefined) body.background_noise = params.backgroundNoise;
+    if (params.typingNoise !== undefined) body.typing_noise = params.typingNoise;
+    if (params.autoTrigger !== undefined) body.auto_trigger = params.autoTrigger;
+
+    const response = await this.http.post<AgentServerResponse>('/v1/agents', body);
+    return transformAgent(response);
   }
 
   /**
@@ -157,38 +123,30 @@ export class AgentsResource {
    *
    * @example
    * ```typescript
-   * const agent = await veroai.agents.update('agent_123', {
+   * const agent = await veroai.agents.update('uuid-here', {
    *   systemPrompt: 'Updated prompt...',
-   *   enabled: true,
+   *   model: 'claude-sonnet-4-20250514',
    * });
    * ```
    */
-  async update(agentId: string, params: UpdateAgentParams): Promise<AgentConfig> {
+  async update(agentId: string, params: UpdateAgentParams): Promise<Agent> {
     const body: Record<string, unknown> = {};
-
-    if (params.name !== undefined) body.name = params.name;
-    if (params.description !== undefined) body.description = params.description;
+    if (params.displayName !== undefined) body.display_name = params.displayName;
+    if (params.avatarUrl !== undefined) body.avatar_url = params.avatarUrl;
+    if (params.agentType !== undefined) body.agent_type = params.agentType;
+    if (params.model !== undefined) body.model = params.model;
+    if (params.promptMode !== undefined) body.prompt_mode = params.promptMode;
     if (params.systemPrompt !== undefined) body.system_prompt = params.systemPrompt;
-    if (params.enabled !== undefined) body.enabled = params.enabled;
-    if (params.status !== undefined) body.status = params.status;
+    if (params.jobTitle !== undefined) body.job_title = params.jobTitle;
+    if (params.voiceId !== undefined) body.voice_id = params.voiceId;
+    if (params.language !== undefined) body.language = params.language;
     if (params.backgroundNoise !== undefined) body.background_noise = params.backgroundNoise;
     if (params.typingNoise !== undefined) body.typing_noise = params.typingNoise;
-    if (params.voiceId !== undefined) body.voice_id = params.voiceId;
+    if (params.autoTrigger !== undefined) body.auto_trigger = params.autoTrigger;
+    if (params.scope !== undefined) body.scope = params.scope;
 
-    if (params.modelConfig) {
-      body.model_config = {
-        ...(params.modelConfig.provider && { provider: params.modelConfig.provider }),
-        ...(params.modelConfig.modelId && { model_id: params.modelConfig.modelId }),
-        ...(params.modelConfig.temperature !== undefined && { temperature: params.modelConfig.temperature }),
-        ...(params.modelConfig.maxTokens !== undefined && { max_tokens: params.modelConfig.maxTokens }),
-      };
-    }
-
-    const response = await this.http.patch<{ agent: AgentResponse }>(
-      `/v1/agents/${encodeURIComponent(agentId)}`,
-      body
-    );
-    return transformAgent(response.agent);
+    const response = await this.http.patch<AgentServerResponse>(`/v1/agents/${encodeURIComponent(agentId)}`, body);
+    return transformAgent(response);
   }
 
   /**
@@ -196,34 +154,10 @@ export class AgentsResource {
    *
    * @example
    * ```typescript
-   * await veroai.agents.delete('agent_123');
+   * await veroai.agents.delete('uuid-here');
    * ```
    */
   async delete(agentId: string): Promise<void> {
     await this.http.delete(`/v1/agents/${encodeURIComponent(agentId)}`);
-  }
-
-  /**
-   * Enable an agent
-   *
-   * @example
-   * ```typescript
-   * const agent = await veroai.agents.enable('agent_123');
-   * ```
-   */
-  async enable(agentId: string): Promise<AgentConfig> {
-    return this.update(agentId, { enabled: true });
-  }
-
-  /**
-   * Disable an agent
-   *
-   * @example
-   * ```typescript
-   * const agent = await veroai.agents.disable('agent_123');
-   * ```
-   */
-  async disable(agentId: string): Promise<AgentConfig> {
-    return this.update(agentId, { enabled: false });
   }
 }

@@ -33,7 +33,7 @@ export class HttpClient {
 
   constructor(config: VeroAIConfig) {
     this.apiKey = config.apiKey;
-    this.baseUrl = config.baseUrl?.replace(/\/$/, '') || 'https://api.veroai.dev';
+    this.baseUrl = config.baseUrl?.replace(/\/$/, '') || 'https://api.veroagents.com';
     this.timeout = config.timeout || 30000;
     this.maxRetries = config.maxRetries ?? 3;
     this.fetchFn = config.fetch || globalThis.fetch;
@@ -47,6 +47,10 @@ export class HttpClient {
         'fetch is not available. Please provide a fetch implementation or use Node.js >= 18.'
       );
     }
+  }
+
+  getBaseUrl(): string {
+    return this.baseUrl;
   }
 
   async request<T>(options: RequestOptions): Promise<T> {

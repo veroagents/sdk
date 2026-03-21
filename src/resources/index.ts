@@ -5,3 +5,5 @@ export { WebhooksResource } from './webhooks';
 export { ApiKeysResource } from './api-keys';
 export { DomainsResource } from './domains';
 export { VoiceResource, VoiceNumbersResource, VoiceCallsResource, VoiceCarriersResource, VoiceApplicationsResource } from './voice';
+export { AttachmentsResource } from './attachments';
+export { MessagingResource } from './messaging';

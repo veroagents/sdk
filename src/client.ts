@@ -37,6 +37,8 @@ import {
   ApiKeysResource,
   DomainsResource,
   VoiceResource,
+  AttachmentsResource,
+  MessagingResource,
 } from './resources';
 import { AgentsResource } from './resources/agents';
 import { RealtimeResource } from './realtime';
@@ -66,8 +68,14 @@ export class VeroAI {
   /** Voice phone numbers and call management */
   readonly voice: VoiceResource;
 
+  /** Attachment metadata and downloads */
+  readonly attachments: AttachmentsResource;
+
   /** AI agent configurations */
   readonly agents: AgentsResource;
+
+  /** Chat messaging WebSocket tokens */
+  readonly messaging: MessagingResource;
 
   /** Real-time event subscriptions via WebSocket */
   readonly realtime: RealtimeResource;
@@ -90,7 +98,7 @@ export class VeroAI {
    * // With custom options
    * const veroai = new VeroAI({
    *   apiKey: 'sk_test_...',
-   *   baseUrl: 'https://api.staging.veroai.dev',
+   *   baseUrl: 'https://api.staging.veroagents.com',
    *   timeout: 60000,
    *   maxRetries: 5,
    * });
@@ -106,7 +114,9 @@ export class VeroAI {
     this.apiKeys = new ApiKeysResource(this.http);
     this.domains = new DomainsResource(this.http);
     this.voice = new VoiceResource(this.http);
+    this.attachments = new AttachmentsResource(this.http);
     this.agents = new AgentsResource(this.http);
+    this.messaging = new MessagingResource(this.http);
 
     // Create token fetcher for realtime - exchanges API key for short-lived WebSocket JWT
     const tokenFetcher = async (): Promise<string> => {
