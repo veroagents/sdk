@@ -36,7 +36,7 @@ export class HttpClient {
     this.baseUrl = config.baseUrl?.replace(/\/$/, '') || 'https://api.veroagents.com';
     this.timeout = config.timeout || 30000;
     this.maxRetries = config.maxRetries ?? 3;
-    this.fetchFn = config.fetch || globalThis.fetch;
+    this.fetchFn = config.fetch || ((...args: Parameters<typeof fetch>) => fetch(...args));
 
     if (!this.apiKey) {
       throw new Error('API key is required');

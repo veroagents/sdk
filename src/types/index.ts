@@ -874,8 +874,12 @@ export interface ListAgentsParams {
 export interface CreateAgentParams {
   /** Agent display name */
   displayName: string;
-  /** Role template ID */
+  /** Role template ID — seeds workspace files (SOUL.md, IDENTITY.md) from role */
   roleId?: string;
+  /** Owner user ID — assigns owner for visibility scoping */
+  ownerUserId?: string;
+  /** USER.md context written to agent workspace */
+  context?: string;
   /** Agent type (e.g. 'assistant') */
   agentType?: string;
   /** Model identifier */
@@ -923,6 +927,36 @@ export interface UpdateAgentParams {
   autoTrigger?: boolean;
   /** Scope */
   scope?: string;
+  /** Mark as user's default/primary agent */
+  isDefault?: boolean;
+}
+
+export interface TriggerAgentParams {
+  /** Conversation to run in */
+  conversationId: string;
+  /** User who triggered the run */
+  senderId: string;
+  /** Message/prompt for the agent */
+  message: string;
+}
+
+export interface TriggerAgentResult {
+  /** Unique run identifier */
+  runId: string;
+  /** Run status */
+  status: 'accepted';
+}
+
+export interface JobRole {
+  id: string;
+  slug: string;
+  displayName: string;
+  category: string;
+  basePrompt?: string;
+  baseTemplate: string;
+  autoTrigger: boolean;
+  suggestedVoice?: string;
+  isActive: boolean;
 }
 
 export interface AgentCallSession {
