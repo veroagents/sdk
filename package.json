@@ -1,6 +1,6 @@
 {
   "name": "@veroai/sdk",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "Official TypeScript/JavaScript SDK for VeroAI - Unified communications API",
   "type": "module",
   "main": "./dist/index.cjs",
