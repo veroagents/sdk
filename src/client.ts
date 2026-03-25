@@ -40,6 +40,7 @@ import {
   AttachmentsResource,
   MessagingResource,
 } from './resources';
+import { AccountsResource } from './resources/accounts';
 import { AgentsResource } from './resources/agents';
 import { TeamsResource } from './resources/teams';
 import { RealtimeResource } from './realtime';
@@ -47,6 +48,10 @@ import type { RealtimeConfig } from './realtime';
 
 export class VeroAI {
   private readonly http: HttpClient;
+  private readonly config: VeroAIConfig & { realtime?: RealtimeConfig };
+
+  /** Manage your account, tenants, and members (account-scoped API key required) */
+  readonly accounts: AccountsResource;
 
   /** Manage communication channels (email, SMS, WhatsApp, etc.) */
   readonly channels: ChannelsResource;
@@ -109,8 +114,10 @@ export class VeroAI {
    * ```
    */
   constructor(config: VeroAIConfig & { realtime?: RealtimeConfig }) {
+    this.config = config;
     this.http = new HttpClient(config);
 
+    this.accounts = new AccountsResource(this.http);
     this.channels = new ChannelsResource(this.http);
     this.events = new EventsResource(this.http);
     this.messages = new MessagesResource(this.http);
@@ -129,6 +136,23 @@ export class VeroAI {
       return response.token;
     };
     this.realtime = new RealtimeResource(tokenFetcher, config.realtime);
+  }
+
+  /**
+   * Create a new client scoped to a specific tenant.
+   *
+   * Useful with account-scoped API keys when you need to operate
+   * on a specific tenant's resources.
+   *
+   * @example
+   * ```typescript
+   * const veroai = new VeroAI({ apiKey: 'sk_live_...' }); // account-scoped
+   * const tenantClient = veroai.forTenant('tenant-uuid');
+   * const agents = await tenantClient.agents.list(); // scoped to that tenant
+   * ```
+   */
+  forTenant(tenantId: string): VeroAI {
+    return new VeroAI({ ...this.config, tenantId });
   }
 
   /**

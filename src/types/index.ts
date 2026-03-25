@@ -9,6 +9,8 @@
 export interface VeroAIConfig {
   /** API key (sk_live_*, sk_test_*, or sk_dev_*) */
   apiKey: string;
+  /** Default tenant ID for tenant-scoped operations (sent as X-Tenant-ID header) */
+  tenantId?: string;
   /** Base URL for API requests (default: https://api.veroagents.com) */
   baseUrl?: string;
   /** Request timeout in milliseconds (default: 30000) */
@@ -232,7 +234,8 @@ export type ApiKeyEnvironment = 'production' | 'development' | 'testing';
 
 export interface ApiKey {
   id: string;
-  tenantId: string;
+  accountId?: string | null;
+  tenantId?: string | null;
   name: string;
   keyPrefix: string;
   environment: ApiKeyEnvironment;
@@ -1052,4 +1055,52 @@ export interface VeroAIErrorDetails {
   code: string;
   message: string;
   details?: Record<string, unknown>;
+}
+
+// ============================================================================
+// Accounts
+// ============================================================================
+
+export interface Account {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AccountMember {
+  id: string;
+  accountId: string;
+  userId: string;
+  email: string;
+  role: 'owner' | 'admin' | 'member';
+  createdAt: string;
+}
+
+export interface CreateAccountTenantParams {
+  name: string;
+  slug?: string;
+}
+
+export interface AddAccountMemberParams {
+  userId: string;
+  email: string;
+  role: 'owner' | 'admin' | 'member';
+}
+
+export interface UpdateAccountMemberParams {
+  role: 'owner' | 'admin' | 'member';
+}
+
+export interface AccountTenant {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
 }

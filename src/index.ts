@@ -119,6 +119,7 @@ export type {
   CreateAgentParams,
   UpdateAgentParams,
 
+
   // Messaging
   MessagingToken,
 
@@ -146,7 +147,23 @@ export { TeamsResource } from './resources/teams';
 export { MessagingResource } from './resources/messaging';
 
 // Voice
-export { VoiceResource, VoiceNumbersResource, VoiceCallsResource, VoiceCarriersResource, VoiceApplicationsResource } from './resources';
+export { VoiceResource, VoiceNumbersResource, VoiceCallsResource, VoiceCarriersResource, VoiceApplicationsResource, VoiceAgentsResource, VoiceProvisioningResource } from './resources';
+
+// Voice Agent Wiring types
+export type {
+  VoiceAgentStatus,
+  VoiceAgentChannel,
+  VoiceAgentNumber,
+  WireAgentParams,
+  WireAgentResult,
+  UnwireAgentParams,
+} from './resources/voice/agents';
+
+// Voice Provisioning types
+export type {
+  JambonzProvisioningStatus,
+  ProvisionJambonzResult,
+} from './resources/voice/provisioning';
 
 // Realtime
 export { RealtimeResource, createRealtimeResource } from './realtime';

@@ -27,6 +27,7 @@ export interface RequestOptions {
 export class HttpClient {
   private readonly apiKey: string;
   private readonly baseUrl: string;
+  private readonly tenantId?: string;
   private readonly timeout: number;
   private readonly maxRetries: number;
   private readonly fetchFn: typeof fetch;
@@ -34,6 +35,7 @@ export class HttpClient {
   constructor(config: VeroAIConfig) {
     this.apiKey = config.apiKey;
     this.baseUrl = config.baseUrl?.replace(/\/$/, '') || 'https://api.veroagents.com';
+    this.tenantId = config.tenantId;
     this.timeout = config.timeout || 30000;
     this.maxRetries = config.maxRetries ?? 3;
     this.fetchFn = config.fetch || ((...args: Parameters<typeof fetch>) => fetch(...args));
@@ -168,6 +170,11 @@ export class HttpClient {
       'User-Agent': '@veroai/sdk/0.1.0',
     });
 
+    // For account-scoped API keys, send tenant context
+    if (this.tenantId) {
+      headers.set('X-Tenant-ID', this.tenantId);
+    }
+
     if (custom) {
       for (const [key, value] of Object.entries(custom)) {
         headers.set(key, value);
@@ -175,6 +182,23 @@ export class HttpClient {
     }
 
     return headers;
+  }
+
+  /** Returns the current tenant ID (if set). */
+  getTenantId(): string | undefined {
+    return this.tenantId;
+  }
+
+  /** Returns the config needed to create a clone with a different tenant. */
+  getConfig(): VeroAIConfig {
+    return {
+      apiKey: this.apiKey,
+      baseUrl: this.baseUrl,
+      tenantId: this.tenantId,
+      timeout: this.timeout,
+      maxRetries: this.maxRetries,
+      fetch: this.fetchFn,
+    };
   }
 
   private async handleErrorResponse(response: Response): Promise<APIError> {

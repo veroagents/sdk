@@ -12,7 +12,8 @@ import type {
 
 interface ApiApiKey {
   id: string;
-  tenant_id: string;
+  account_id: string | null;
+  tenant_id: string | null;
   name: string;
   key_prefix: string;
   environment: string;
@@ -35,6 +36,7 @@ interface CreateApiKeyApiResponse {
 function transformApiKey(data: ApiApiKey): ApiKey {
   return {
     id: data.id,
+    accountId: data.account_id,
     tenantId: data.tenant_id,
     name: data.name,
     keyPrefix: data.key_prefix,
