@@ -142,6 +142,7 @@ export {
 
 // Resources
 export { AgentsResource } from './resources/agents';
+export { TeamsResource } from './resources/teams';
 export { MessagingResource } from './resources/messaging';
 
 // Voice

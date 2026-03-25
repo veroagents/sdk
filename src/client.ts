@@ -41,6 +41,7 @@ import {
   MessagingResource,
 } from './resources';
 import { AgentsResource } from './resources/agents';
+import { TeamsResource } from './resources/teams';
 import { RealtimeResource } from './realtime';
 import type { RealtimeConfig } from './realtime';
 
@@ -73,6 +74,9 @@ export class VeroAI {
 
   /** AI agent configurations */
   readonly agents: AgentsResource;
+
+  /** Agent teams */
+  readonly teams: TeamsResource;
 
   /** Chat messaging WebSocket tokens */
   readonly messaging: MessagingResource;
@@ -116,6 +120,7 @@ export class VeroAI {
     this.voice = new VoiceResource(this.http);
     this.attachments = new AttachmentsResource(this.http);
     this.agents = new AgentsResource(this.http);
+    this.teams = new TeamsResource(this.http);
     this.messaging = new MessagingResource(this.http);
 
     // Create token fetcher for realtime - exchanges API key for short-lived WebSocket JWT

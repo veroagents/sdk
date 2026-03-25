@@ -1017,6 +1017,34 @@ export interface Attachment {
 }
 
 // ============================================================================
+// ============================================================================
+// Teams
+// ============================================================================
+
+export interface TeamMember {
+  agentId: string;
+  displayName: string;
+  avatarUrl?: string;
+  jobTitle?: string;
+  role: string;
+  createdAt: string;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  description: string;
+  tenantId: string;
+  sandcastleId?: string;
+  vmStatus: string;
+  createdAt: string;
+  members: TeamMember[];
+}
+
+export interface ListTeamsParams {
+  // Currently no filters — returns all teams for the tenant.
+}
+
 // Errors
 // ============================================================================
 
