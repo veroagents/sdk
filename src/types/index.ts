@@ -48,6 +48,7 @@ export interface DateRangeParams {
 
 export type AdapterType =
   | 'email_mx'
+  | 'email_routing'
   | 'gmail-oauth'
   | 'sms_twilio'
   | 'whatsapp'
@@ -875,8 +876,8 @@ export interface ListAgentsParams {
 }
 
 export interface CreateAgentParams {
-  /** Agent display name */
-  displayName: string;
+  /** Agent display name (auto-generated from role if omitted) */
+  displayName?: string;
   /** Role template ID — seeds workspace files (SOUL.md, IDENTITY.md) from role */
   roleId?: string;
   /** Owner user ID — assigns owner for visibility scoping */
