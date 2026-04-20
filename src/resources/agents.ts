@@ -271,15 +271,18 @@ export class AgentsResource {
     context?: string;
     avatarUrl?: string;
     voiceId?: string;
+    capabilities?: string[];
   }): Promise<{ agentId: string; conversationId: string }> {
-    const response = await this.http.post<{ agent_id: string; conversation_id: string }>('/v1/agents/onboard', {
+    const body: Record<string, unknown> = {
       owner_id: params.ownerId,
       display_name: params.displayName,
       role_id: params.roleId || 'personal-assistant',
       context: params.context,
       avatar_url: params.avatarUrl,
       voice_id: params.voiceId,
-    });
+    };
+    if (params.capabilities !== undefined) body.capabilities = params.capabilities;
+    const response = await this.http.post<{ agent_id: string; conversation_id: string }>('/v1/agents/onboard', body);
     return {
       agentId: response.agent_id,
       conversationId: response.conversation_id,
