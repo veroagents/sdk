@@ -178,5 +178,52 @@ export type {
   SubscriptionType,
 } from './realtime';
 
+// Agent runs
+export { AgentRunsResource } from './resources/agent-runs';
+export type {
+  AgentRun,
+  AgentRunEvent,
+  AgentRunStatus,
+  ListAgentRunsParams,
+} from './types';
+
+// Brain (structured agent memory)
+export { BrainResource } from './resources/brain';
+export type {
+  BrainScope,
+  BrainEntry,
+  BrainEvent,
+  BrainReadParams,
+  BrainWriteParams,
+  BrainQueryParams,
+  BrainQueryResult,
+  BrainSubscribeParams,
+} from './types';
+
+// Sandcastle (Firecracker microVMs)
+export { SandcastleResource } from './resources/sandcastle';
+export type {
+  SandcastleVm,
+  SandcastleImage,
+  SandcastleStatus,
+  CreateSandcastleParams,
+  ListSandcastlesParams,
+  SandcastleExecParams,
+  SandcastleExecResult,
+} from './types';
+
+// Users (end-user auth for customer-tenant apps)
+export { UsersResource } from './resources/users';
+export type {
+  AuthenticateParams,
+  CompleteMfaParams,
+  AuthUser,
+  AuthTenant,
+  AuthSuccess,
+  MfaChallenge,
+  AuthenticateResult,
+  TokenPair,
+} from './resources/users';
+
 // Default export for convenience
 export { VeroAI as default } from './client';

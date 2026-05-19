@@ -31,18 +31,21 @@ export class HttpClient {
   private readonly timeout: number;
   private readonly maxRetries: number;
   private readonly fetchFn: typeof fetch;
+  /**
+   * Cookie mode: true when no apiKey was provided. Skips the
+   * Authorization header and sends `credentials: 'include'` so a BFF
+   * worker's session cookie carries auth instead.
+   */
+  private readonly cookieMode: boolean;
 
   constructor(config: VeroAIConfig) {
-    this.apiKey = config.apiKey;
+    this.apiKey = config.apiKey ?? '';
     this.baseUrl = config.baseUrl?.replace(/\/$/, '') || 'https://api.veroagents.com';
     this.tenantId = config.tenantId;
     this.timeout = config.timeout || 30000;
     this.maxRetries = config.maxRetries ?? 3;
     this.fetchFn = config.fetch || ((...args: Parameters<typeof fetch>) => fetch(...args));
-
-    if (!this.apiKey) {
-      throw new Error('API key is required');
-    }
+    this.cookieMode = this.apiKey.length === 0;
 
     if (!this.fetchFn) {
       throw new Error(
@@ -53,6 +56,28 @@ export class HttpClient {
 
   getBaseUrl(): string {
     return this.baseUrl;
+  }
+
+  /**
+   * Returns Authorization + tenancy headers for manually-initiated requests
+   * (e.g. SSE streams or WebSocket upgrades that bypass the retrying client).
+   *
+   * In cookie mode the Authorization header is omitted; callers driving a
+   * direct fetch must add `credentials: 'include'` to their request init
+   * so the worker's session cookie attaches.
+   */
+  getAuthHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {};
+    if (!this.cookieMode) {
+      headers.Authorization = `Bearer ${this.apiKey}`;
+    }
+    if (this.tenantId) headers['X-Tenant-ID'] = this.tenantId;
+    return headers;
+  }
+
+  /** True when the client is running in BFF/cookie mode. */
+  isCookieMode(): boolean {
+    return this.cookieMode;
   }
 
   async request<T>(options: RequestOptions): Promise<T> {
@@ -137,6 +162,9 @@ export class HttpClient {
         headers: options.headers,
         body: options.body,
         signal: controller.signal,
+        // In cookie/BFF mode, attach session cookie on cross-origin fetches
+        // from app.veroagents.com → api.veroagents.com.
+        ...(this.cookieMode ? { credentials: 'include' } : {}),
       });
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -163,12 +191,19 @@ export class HttpClient {
   }
 
   private buildHeaders(custom?: Record<string, string>): Headers {
-    const headers = new Headers({
-      'Authorization': `Bearer ${this.apiKey}`,
+    const baseInit: Record<string, string> = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       'User-Agent': '@veroai/sdk/0.1.0',
-    });
+    };
+    if (!this.cookieMode) {
+      baseInit['Authorization'] = `Bearer ${this.apiKey}`;
+    } else {
+      // Cookie/BFF mode: the worker's CSRF middleware accepts X-Requested-With
+      // as a non-simple header (forces preflight, blocking form-CSRF).
+      baseInit['X-Requested-With'] = 'fetch';
+    }
+    const headers = new Headers(baseInit);
 
     // For account-scoped API keys, send tenant context
     if (this.tenantId) {

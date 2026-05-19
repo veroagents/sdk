@@ -7,3 +7,7 @@ export { DomainsResource } from './domains';
 export { VoiceResource, VoiceNumbersResource, VoiceCallsResource, VoiceCarriersResource, VoiceApplicationsResource, VoiceAgentsResource, VoiceProvisioningResource } from './voice';
 export { AttachmentsResource } from './attachments';
 export { MessagingResource } from './messaging';
+export { AgentRunsResource } from './agent-runs';
+export { BrainResource } from './brain';
+export { SandcastleResource } from './sandcastle';
+export * from './users';

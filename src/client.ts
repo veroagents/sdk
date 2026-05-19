@@ -42,7 +42,10 @@ import {
 } from './resources';
 import { AccountsResource } from './resources/accounts';
 import { AgentsResource } from './resources/agents';
+import { BrainResource } from './resources/brain';
+import { SandcastleResource } from './resources/sandcastle';
 import { TeamsResource } from './resources/teams';
+import { UsersResource } from './resources/users';
 import { RealtimeResource } from './realtime';
 import type { RealtimeConfig } from './realtime';
 
@@ -77,14 +80,23 @@ export class VeroAI {
   /** Attachment metadata and downloads */
   readonly attachments: AttachmentsResource;
 
-  /** AI agent configurations */
+  /** AI agent configurations, runs, and triggers */
   readonly agents: AgentsResource;
+
+  /** Structured agent memory — facts, moments, relationships, tasks */
+  readonly brain: BrainResource;
+
+  /** Firecracker microVMs for isolated agent execution */
+  readonly sandcastle: SandcastleResource;
 
   /** Agent teams */
   readonly teams: TeamsResource;
 
   /** Chat messaging WebSocket tokens */
   readonly messaging: MessagingResource;
+
+  /** Authenticate end-users for your customer-tenant apps */
+  readonly users: UsersResource;
 
   /** Real-time event subscriptions via WebSocket */
   readonly realtime: RealtimeResource;
@@ -127,8 +139,11 @@ export class VeroAI {
     this.voice = new VoiceResource(this.http);
     this.attachments = new AttachmentsResource(this.http);
     this.agents = new AgentsResource(this.http);
+    this.brain = new BrainResource(this.http);
+    this.sandcastle = new SandcastleResource(this.http);
     this.teams = new TeamsResource(this.http);
     this.messaging = new MessagingResource(this.http);
+    this.users = new UsersResource(this.http);
 
     // Create token fetcher for realtime - exchanges API key for short-lived WebSocket JWT
     const tokenFetcher = async (): Promise<string> => {

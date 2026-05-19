@@ -7,8 +7,13 @@
 // ============================================================================
 
 export interface VeroAIConfig {
-  /** API key (sk_live_*, sk_test_*, or sk_dev_*) */
-  apiKey: string;
+  /**
+   * API key (sk_live_*, sk_test_*, or sk_dev_*).
+   * Optional in browser/BFF mode — when omitted, the SDK sends
+   * `credentials: 'include'` so the BFF worker's session cookie
+   * carries authentication.
+   */
+  apiKey?: string;
   /** Default tenant ID for tenant-scoped operations (sent as X-Tenant-ID header) */
   tenantId?: string;
   /** Base URL for API requests (default: https://api.veroagents.com) */
@@ -1104,4 +1109,195 @@ export interface AccountTenant {
   status: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// ============================================================================
+// Agent runs
+// ============================================================================
+
+export type AgentRunStatus =
+  | 'queued'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | 'idle';
+
+export interface AgentRun {
+  id: string;
+  agentId: string;
+  conversationId: string;
+  senderId: string;
+  status: AgentRunStatus;
+  turns: number;
+  startedAt: string;
+  endedAt?: string;
+  error?: string;
+}
+
+export interface ListAgentRunsParams extends PaginationParams {
+  agentId?: string;
+  conversationId?: string;
+  status?: AgentRunStatus;
+}
+
+export interface AgentRunEvent {
+  /** Event type */
+  type:
+    | 'turn_start'
+    | 'token'
+    | 'tool_call'
+    | 'tool_result'
+    | 'message'
+    | 'status'
+    | 'error'
+    | 'done';
+  /** ISO timestamp */
+  at: string;
+  /** Run ID this event belongs to */
+  runId: string;
+  /** Arbitrary event payload */
+  data: Record<string, unknown>;
+}
+
+// ============================================================================
+// Brain (structured agent memory)
+// ============================================================================
+
+/** Which memory tier to target */
+export type BrainScope = 'semantic' | 'episodic' | 'graph' | 'tasks' | 'working';
+
+export interface BrainWriteParams {
+  agentId: string;
+  scope: BrainScope;
+  /** Stable key within the scope (e.g. "findings:market-sizing") */
+  key: string;
+  /** Arbitrary JSON value */
+  value: unknown;
+  /** Optional TTL in seconds */
+  ttl?: number;
+  /** Optional free-form tags for retrieval */
+  tags?: string[];
+}
+
+export interface BrainEntry {
+  id: string;
+  agentId: string;
+  scope: BrainScope;
+  key: string;
+  value: unknown;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+  expiresAt?: string;
+}
+
+export interface BrainReadParams {
+  agentId: string;
+  scope: BrainScope;
+  key: string;
+}
+
+export interface BrainQueryParams extends PaginationParams {
+  agentId: string;
+  scope?: BrainScope;
+  /** Semantic search query (hybrid vector + BM25) */
+  q?: string;
+  /** Token budget for assembled context */
+  budget?: number;
+  /** Filter by tags */
+  tags?: string[];
+}
+
+export interface BrainQueryResult {
+  entries: BrainEntry[];
+  /** Context assembled within budget, priority-ordered */
+  context?: string;
+}
+
+export interface BrainSubscribeParams {
+  agentId: string;
+  scope?: BrainScope;
+  /** Optional key prefix filter */
+  keyPrefix?: string;
+}
+
+export interface BrainEvent {
+  type: 'write' | 'delete' | 'expire';
+  at: string;
+  entry: BrainEntry;
+}
+
+// ============================================================================
+// Sandcastle (Firecracker microVMs)
+// ============================================================================
+
+export type SandcastleImage = 'base' | 'browserbase' | 'dev-machine' | (string & {});
+
+export type SandcastleStatus =
+  | 'provisioning'
+  | 'booting'
+  | 'running'
+  | 'stopping'
+  | 'stopped'
+  | 'error';
+
+export interface SandcastleVm {
+  id: string;
+  image: SandcastleImage;
+  status: SandcastleStatus;
+  agentId?: string;
+  /** MCP server base URL (port 3000) */
+  mcpEndpoint: string;
+  /** REST API base URL (port 8080) */
+  apiEndpoint: string;
+  /** Internal IP */
+  ipAddress: string;
+  vcpus: number;
+  memoryMb: number;
+  /** Boot duration in milliseconds */
+  bootMs?: number;
+  createdAt: string;
+  startedAt?: string;
+  stoppedAt?: string;
+  /** Auto-terminate after this many seconds of idle */
+  idleTtl?: number;
+  /** Max lifetime in seconds */
+  maxLifetime?: number;
+}
+
+export interface CreateSandcastleParams {
+  image: SandcastleImage;
+  agentId?: string;
+  /** Secrets injected at boot via MMDS (never persisted to disk) */
+  secrets?: Record<string, string>;
+  /** Environment variables (non-secret) */
+  env?: Record<string, string>;
+  vcpus?: number;
+  memoryMb?: number;
+  idleTtl?: number;
+  maxLifetime?: number;
+}
+
+export interface ListSandcastlesParams extends PaginationParams {
+  status?: SandcastleStatus;
+  agentId?: string;
+}
+
+export interface SandcastleExecParams {
+  /** Shell command to execute */
+  command: string;
+  /** Working directory (default: /workspace) */
+  cwd?: string;
+  /** Environment variables for this exec */
+  env?: Record<string, string>;
+  /** Timeout in milliseconds */
+  timeout?: number;
+}
+
+export interface SandcastleExecResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  durationMs: number;
 }

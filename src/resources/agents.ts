@@ -6,6 +6,7 @@
 
 import type { HttpClient } from '../utils/http';
 import type { Agent, ListAgentsParams, CreateAgentParams, UpdateAgentParams, TriggerAgentParams, TriggerAgentResult, JobRole } from '../types';
+import { AgentRunsResource } from './agent-runs';
 
 // Server response (snake_case from agentsrv)
 interface AgentServerResponse {
@@ -79,7 +80,12 @@ function transformRole(r: JobRoleServerResponse): JobRole {
 }
 
 export class AgentsResource {
-  constructor(private readonly http: HttpClient) {}
+  /** Inspect, cancel, and stream agent runs */
+  readonly runs: AgentRunsResource;
+
+  constructor(private readonly http: HttpClient) {
+    this.runs = new AgentRunsResource(http);
+  }
 
   /**
    * List AI agents
