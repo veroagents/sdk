@@ -26,7 +26,7 @@ import type {
   LiveStateSubscriptionCommand,
 } from './live-state-types';
 
-const DEFAULT_REALTIME_URL = 'wss://events.veroagents.com/ws';
+const DEFAULT_REALTIME_URL = 'wss://ws.veroagents.com/events';
 const DEFAULT_RECONNECT_INTERVAL = 1000;
 const MAX_RECONNECT_INTERVAL = 30000;
 const DEFAULT_MAX_RECONNECT_ATTEMPTS = 10;
