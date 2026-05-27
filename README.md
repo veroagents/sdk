@@ -45,7 +45,12 @@ const result = await veroai.messages.send({
 - **Error handling** with typed error classes
 - **Real-time events** via WebSocket subscriptions
 - **Voice/video** with LiveKit WebRTC rooms, SIP trunking, and call management
-- **AI agents** with workspace files, triggers, and team management
+- **AI agents** with workspace files, run streaming (SSE), and team management
+- **Structured agent memory** (Brain) — semantic / episodic / graph / tasks scopes with SSE subscriptions
+- **Firecracker microVM sandboxes** (Sandcastle) for isolated agent execution
+- **Account & tenant management** with `forTenant()` scoping for account-scoped keys
+- **End-user authentication** for customer-tenant apps (email/password + MFA)
+- **Federation** — mint scoped Vero JWTs for the customer's own end-users (Mode A signed-assertion or Mode B M2M)
 - **Works everywhere** - Node.js, browsers, edge runtimes
 
 ## Usage
@@ -85,6 +90,29 @@ interface VeroAIConfig {
   /** Custom fetch implementation (for Node.js < 18 or testing) */
   fetch?: typeof fetch;
 }
+```
+
+### Accounts (account-scoped API keys)
+
+Account-scoped API keys (`sk_live_*` / `sk_test_*` / `sk_dev_*` issued at the account level) let you manage an account, its tenants, and its members. Use `forTenant()` to scope subsequent calls to a specific tenant's resources (sends `X-Tenant-ID`).
+
+```typescript
+// Current account
+const account = await veroai.accounts.get();
+
+// Tenants
+const { data: tenants } = await veroai.accounts.listTenants();
+const tenant = await veroai.accounts.createTenant({ name: 'Acme Prod' });
+
+// Members
+const { data: members } = await veroai.accounts.listMembers();
+await veroai.accounts.addMember({ userId: 'usr_123', email: 'op@acme.com', role: 'admin' });
+await veroai.accounts.updateMember('usr_123', { role: 'owner' });
+await veroai.accounts.removeMember('usr_123');
+
+// Scope a client to a single tenant
+const tenantClient = veroai.forTenant('tenant-uuid');
+const { agents } = await tenantClient.agents.list();
 ```
 
 ### Channels
@@ -250,6 +278,93 @@ await veroai.agents.updateFile('agent-uuid', 'SOUL.md', '## Role\nYou are a help
 await veroai.agents.deleteFile('agent-uuid', 'TOOLS.md');
 ```
 
+#### Agent Runs (inspect / cancel / stream)
+
+Runs are exposed under `veroai.agents.runs`. The `stream()` method returns an async iterator over SSE events.
+
+```typescript
+// List runs
+const { runs } = await veroai.agents.runs.list({ agentId: 'agent-uuid', limit: 20 });
+
+// Get a single run
+const run = await veroai.agents.runs.get('run_abc123');
+
+// Cancel a running run
+await veroai.agents.runs.cancel('run_abc123');
+
+// Stream events (token, tool_call, tool_result, message, status, done)
+const controller = new AbortController();
+for await (const ev of veroai.agents.runs.stream('run_abc123', { signal: controller.signal })) {
+  if (ev.type === 'token') process.stdout.write(String(ev.data.text));
+  if (ev.type === 'done') break;
+}
+```
+
+### Brain (structured agent memory)
+
+Semantic / episodic / graph / tasks / working scopes. Agents coordinate through writes + SSE subscriptions — no direct agent-to-agent messaging.
+
+```typescript
+// Write a memory entry
+await veroai.brain.write({
+  agentId: 'agent-uuid',
+  scope: 'episodic',
+  key: 'call:8291:transcript',
+  value: { text: '...', language: 'he' },
+  tags: ['call', 'hebrew'],
+  ttl: 3600,
+});
+
+// Read by exact key (returns null on 404)
+const entry = await veroai.brain.read({
+  agentId: 'agent-uuid',
+  scope: 'semantic',
+  key: 'preferences:david',
+});
+
+// Hybrid search + token-budgeted context
+const { entries, context } = await veroai.brain.query({
+  agentId: 'agent-uuid',
+  q: 'what does david prefer',
+  budget: 2000,
+});
+
+// Delete an entry
+await veroai.brain.delete('agent-uuid', 'episodic', 'call:8291:transcript');
+
+// Subscribe to writes (telepathy primitive)
+const controller = new AbortController();
+for await (const ev of veroai.brain.subscribe({ agentId: 'agent-uuid', scope: 'episodic' }, { signal: controller.signal })) {
+  console.log(ev.type, ev.entry.key);
+}
+```
+
+### Sandcastle (Firecracker microVMs)
+
+Isolated agent execution environments. ~125 ms cold boot, MMDS secret injection, MCP server on `:3000`, REST API on `:8080`.
+
+```typescript
+// Boot a VM
+const vm = await veroai.sandcastle.create({
+  image: 'dev-machine',
+  agentId: 'researcher-01',
+  secrets: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY! },
+  idleTtl: 300,
+});
+console.log(vm.mcpEndpoint, vm.apiEndpoint);
+
+// List / get
+const { vms } = await veroai.sandcastle.list({ status: 'running' });
+const got = await veroai.sandcastle.get(vm.id);
+
+// One-shot exec
+const r = await veroai.sandcastle.exec(vm.id, { command: 'node -v' });
+console.log(r.exitCode, r.stdout, r.stderr);
+
+// Destroy
+await veroai.sandcastle.destroy(vm.id);
+```
+
 ### Teams
 
 ```typescript
@@ -412,6 +527,39 @@ await veroai.voice.applications.update('app-sid', {
 await veroai.voice.applications.delete('app-sid');
 ```
 
+#### Agent Voice Wiring
+
+Wire an agent to a phone number for inbound calls. Auto-creates the voice channel + Jambonz application if needed.
+
+```typescript
+// List all agents with voice wiring status
+const agents = await veroai.voice.agents.list();
+// agents[0]: { id, name, enabled, voiceChannels, phoneNumbers, isVoiceWired }
+
+// Wire an agent to a phone number
+const result = await veroai.voice.agents.wire({
+  agentId: 'agent-uuid',
+  phoneNumberId: 'num-uuid',
+  channelName: 'Support Line',
+});
+
+// Unwire
+await veroai.voice.agents.unwire({ agentId: 'agent-uuid', phoneNumberId: 'num-uuid' });
+```
+
+#### Jambonz Provisioning
+
+Per-tenant Jambonz account provisioning (idempotent).
+
+```typescript
+// Check status
+const status = await veroai.voice.provisioning.getJambonzStatus();
+// { provisioned, jambonzAccountSid, hasApiKey }
+
+// Provision (no-op if already provisioned)
+const { jambonzAccountSid } = await veroai.voice.provisioning.provisionJambonz();
+```
+
 ### Attachments
 
 ```typescript
@@ -441,6 +589,131 @@ const { token, wsUrl, expiresAt } = await veroai.messaging.getToken();
 // Use with @veroai/chat or connect directly:
 const ws = new WebSocket(`${wsUrl}?token=${token}`);
 ```
+
+> Full chat client (React hooks, presence, typing indicators) lives in the separate **`@veroai/chat`** package. The `chat.ts` module inside this SDK is deprecated.
+
+### End-user Authentication
+
+Authenticate end-users of your customer-tenant apps (separate from your own VeroAI account members). Backed by `/v1/auth/users/*`.
+
+```typescript
+import { UsersResource } from '@veroai/sdk';
+
+const result = await veroai.users.authenticate({
+  email: 'jane@customer.example',
+  password: 'hunter2',
+});
+
+if (UsersResource.isMfaChallenge(result)) {
+  const session = await veroai.users.completeMfa({
+    mfa_token: result.mfa_token,
+    code: '123456',
+  });
+  // session.access_token, session.refresh_token
+} else {
+  // result is AuthSuccess
+  console.log(result.access_token, result.user, result.tenant);
+}
+
+// Refresh + revoke
+const fresh = await veroai.users.refresh(result.refresh_token);
+await veroai.users.revoke(fresh.access_token);
+```
+
+### Federation (scoped end-user JWTs)
+
+Mint scoped Vero end-user JWTs for *your* customers' end-users — see `authsrv/FEDERATED.md` for the full design. Two modes:
+
+- **Mode A** — you sign a short-lived assertion JWT with a key whose public half is registered on the tenant, then exchange it via `federate({assertion})`.
+- **Mode B** — you assert the end-user identity directly via M2M trust (`endUserToken({...})`).
+
+Configure via the constructor:
+
+```typescript
+const veroai = new VeroAI({
+  apiKey: 'sk_live_...',
+  federation: {
+    authsrvUrl: 'https://auth.veroagents.com',          // optional, this is the default
+    oauthClient: { id: 'client_abc', secret: 'shhh' },  // required for mint/revoke
+    adminToken: process.env.AUTHSRV_API_TOKEN,          // required for key registration
+  },
+});
+```
+
+#### Key registration (ops — requires `adminToken`)
+
+```typescript
+// Register a static PEM public key for a tenant
+await veroai.federation.registerKey({
+  tenantId: 'tid',
+  kid: 'k1',
+  alg: 'ES256',
+  publicKey: pemPublicKey,
+});
+
+// Or register a JWKS URI
+await veroai.federation.registerJwks({
+  tenantId: 'tid',
+  kid: 'k1',
+  alg: 'ES256',
+  jwksUri: 'https://idp.customer.com/.well-known/jwks.json',
+  cacheTtlS: 300,
+});
+
+const { keys } = await veroai.federation.listKeys({ tenantId: 'tid' });
+await veroai.federation.revokeKey({ tenantId: 'tid', kid: 'k1' });
+```
+
+#### Mint end-user tokens (customer M2M — requires `oauthClient`)
+
+```typescript
+// Mode B — direct M2M assertion
+const tokenB = await veroai.federation.endUserToken({
+  externalId: 'user-123',
+  email: 'user@customer.com',
+  scope: ['chat'],
+  ttlSeconds: 3600,
+});
+
+// Mode A — exchange a signed assertion (see signAssertion below)
+const tokenA = await veroai.federation.federate({
+  assertion: signedJwt,
+  scope: ['chat'],
+});
+
+// Smart entry point — picks Mode A if `assertion` is set, else Mode B
+const token = await veroai.federation.mintEndUserToken({
+  externalId: 'user-123',
+  scope: ['chat'],
+  assertion: signedJwt, // optional
+});
+
+// Revoke
+await veroai.federation.revokeSession({ sessionId: token.sessionId });
+await veroai.federation.revokeAllForUser({ externalId: 'user-123' });
+```
+
+#### `signAssertion()` — Mode A helper
+
+Mints the short-lived ES256 JWT to feed into `federate({assertion})`. Uses the private key whose public half you registered via `registerKey`. Lifetime capped at 5 min (matches authsrv).
+
+```typescript
+import { signAssertion } from '@veroai/sdk';
+
+const assertion = await signAssertion({
+  tenantId: 'tid',
+  externalId: 'user-123',
+  kid: 'k1',
+  privateKey: pkcs8PemString,
+  email: 'user@customer.com',
+  scope: ['chat'],
+  ttlSeconds: 60, // default 60, min 30, max 300
+});
+
+const minted = await veroai.federation.federate({ assertion });
+```
+
+Errors: `SignAssertionError` (bad key / TTL), `FederationConfigError` (missing `oauthClient`/`adminToken`), `FederationApiError` (non-2xx from authsrv, exposes `.status` and `.code`).
 
 ### Real-time Events
 
@@ -506,6 +779,141 @@ In Node.js, install the `ws` package for WebSocket support:
 npm install ws
 ```
 
+### Live State (Extensions + Queues)
+
+The `live_state` subscription scope streams the canonical view of your
+tenant's PBX state: every extension's presence + active call, and every
+queue's waiting list + agent roster. It's designed for live dashboards
+(agent panels, supervisor wallboards, real-time canvases).
+
+The server sends one full snapshot frame on subscribe, then incremental
+diff frames as state changes — the SDK exposes the snapshot as the
+resolved value of `subscribeLiveState`, and diffs flow through a
+separate handler.
+
+**Authentication.** `live_state` uses the same authsrv-minted JWT as the
+rest of realtime; the server enforces that the requested `tenant_id`
+matches an allowed tenant in the token's claim set. A token mismatch
+returns a `subscription_error` ack with `error: "tenant_not_authorized"`.
+
+#### Basic flow
+
+```typescript
+import {
+  applyExtDiff,
+  applyQueueDiff,
+  extensionsFromSnapshot,
+  queuesFromSnapshot,
+} from '@veroai/sdk';
+
+await veroai.realtime.connect();
+
+const snapshot = await veroai.realtime.subscribeLiveState(tenantId);
+let extensions = extensionsFromSnapshot(snapshot.extensions);
+let queues = queuesFromSnapshot(snapshot.queues);
+
+const unregisterDiff = veroai.realtime.onLiveStateDiff((diff) => {
+  if (diff.scope === 'ext') {
+    extensions = applyExtDiff(extensions, diff);
+  } else {
+    queues = applyQueueDiff(queues, diff);
+  }
+  render(extensions, queues);
+});
+
+// Reconciliation snapshots (rare) overwrite the whole list:
+const unregisterSnap = veroai.realtime.onLiveStateSnapshot((snap) => {
+  extensions = extensionsFromSnapshot(snap.extensions);
+  queues = queuesFromSnapshot(snap.queues);
+  render(extensions, queues);
+});
+
+// Teardown — e.g. on component unmount:
+unregisterDiff();
+unregisterSnap();
+await veroai.realtime.unsubscribeLiveState(tenantId);
+```
+
+#### React hook example
+
+```tsx
+import { useEffect, useState } from 'react';
+import {
+  applyExtDiff,
+  applyQueueDiff,
+  extensionsFromSnapshot,
+  queuesFromSnapshot,
+  type LiveStateExtensionUI,
+  type LiveStateQueueUI,
+  type LiveStateSnapshot,
+  type ConnectionState,
+} from '@veroai/sdk';
+
+export function useLiveState(veroai: VeroAI, tenantId: string) {
+  const [snapshot, setSnapshot] = useState<LiveStateSnapshot | null>(null);
+  const [extensions, setExtensions] = useState<LiveStateExtensionUI[]>([]);
+  const [queues, setQueues] = useState<LiveStateQueueUI[]>([]);
+  const [connectionState, setConnectionState] = useState<ConnectionState>(
+    veroai.realtime.getState()
+  );
+
+  useEffect(() => {
+    const offState = veroai.realtime.onStateChange(setConnectionState);
+    const offSnap = veroai.realtime.onLiveStateSnapshot((s) => {
+      setSnapshot(s);
+      setExtensions(extensionsFromSnapshot(s.extensions));
+      setQueues(queuesFromSnapshot(s.queues));
+    });
+    const offDiff = veroai.realtime.onLiveStateDiff((d) => {
+      if (d.scope === 'ext') {
+        setExtensions((prev) => applyExtDiff(prev, d));
+      } else {
+        setQueues((prev) => applyQueueDiff(prev, d));
+      }
+    });
+
+    (async () => {
+      await veroai.realtime.connect();
+      await veroai.realtime.subscribeLiveState(tenantId);
+    })();
+
+    return () => {
+      offState();
+      offSnap();
+      offDiff();
+      veroai.realtime.unsubscribeLiveState(tenantId).catch(() => {});
+    };
+  }, [veroai, tenantId]);
+
+  return { snapshot, extensions, queues, connectionState };
+}
+```
+
+#### Wire shape reference
+
+| Frame                  | Trigger                                            | Carries                                                                 |
+| ---------------------- | -------------------------------------------------- | ----------------------------------------------------------------------- |
+| `subscription_confirmed` | Server accepted subscribe/unsubscribe              | `{action, scope:"live_state", tenant_id}`                               |
+| `subscription_error`   | Tenant not authorised or transient backend error   | `{action, scope:"live_state", tenant_id, error}`                        |
+| `snapshot`             | Initial subscribe + any reconciliation re-emit     | `{tenant_id, ts_ms, extensions[], queues[]}` — full replacement         |
+| `diff` (`scope:"ext"`)   | Statesrv republishes an extension HASH             | `{ext, status, direction?, peer?, call_id?, started_at_ms?, ...}`       |
+| `diff` (`scope:"queue"`) | Queue waiting list or agent state changed          | `{queue_id, changes:{size?, oldest_wait_s?, waiting_added/removed, agents_changed}}` |
+
+**Wire → UI presence:** `idle` → `available`, `ringing` → `ringing`,
+`on_call` → `on_call`, anything else → `undefined` (consumer falls back
+to its own presence model).
+
+**Wire → UI direction:** `inbound` → `inbound`, `outbound` → `outbound`,
+`internal` (and anything else) → `inbound`.
+
+#### Reconnect semantics
+
+`subscribeLiveState`/`unsubscribeLiveState` are tracked alongside the
+existing channel/event_type sets. On reconnect, the SDK re-sends a
+subscribe frame for every tracked tenant in parallel. Per-tenant
+failures are surfaced through the existing `onError` handler — one
+slow or denied tenant doesn't block the others.
+
 ## Error Handling
 
 The SDK provides typed error classes for different scenarios:
@@ -566,17 +974,41 @@ import type {
   ApiKey, ApiKeyEnvironment,
   // Domains
   Domain, DnsRecord,
+  // Accounts
+  Account, AccountMember, AccountTenant,
+  CreateAccountTenantParams, AddAccountMemberParams, UpdateAccountMemberParams,
   // Agents
   Agent, CreateAgentParams, UpdateAgentParams, JobRole,
+  // Agent Runs
+  AgentRun, AgentRunEvent, AgentRunStatus, ListAgentRunsParams,
+  // Brain
+  BrainScope, BrainEntry, BrainEvent,
+  BrainReadParams, BrainWriteParams, BrainQueryParams, BrainQueryResult, BrainSubscribeParams,
+  // Sandcastle
+  SandcastleVm, SandcastleImage, SandcastleStatus,
+  CreateSandcastleParams, ListSandcastlesParams,
+  SandcastleExecParams, SandcastleExecResult,
   // Teams
   Team, TeamMember,
   // Voice
   PhoneNumber, Call, VoiceCarrier, VoiceApplication,
   LiveKitRoomInfo, LiveKitRoom, LiveKitParticipant,
+} from '@veroai/sdk';
+
+import type {
+  // Voice agent wiring + provisioning
+  VoiceAgentStatus, VoiceAgentChannel, VoiceAgentNumber,
+  WireAgentParams, WireAgentResult, UnwireAgentParams,
+  JambonzProvisioningStatus, ProvisionJambonzResult,
   // Attachments
   Attachment,
   // Messaging
   MessagingToken,
+  // End-user auth
+  AuthenticateParams, CompleteMfaParams,
+  AuthUser, AuthTenant, AuthSuccess, MfaChallenge, AuthenticateResult, TokenPair,
+  // Federation (signer)
+  SignAssertionParams,
   // Realtime
   RealtimeEvent, RealtimeConfig, ConnectionState,
 } from '@veroai/sdk';

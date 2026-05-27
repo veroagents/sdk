@@ -17,6 +17,14 @@ import type {
   SubscriptionConfirmation,
   TokenFetcher,
 } from './types';
+import type {
+  LiveStateDiff,
+  LiveStateDiffHandler,
+  LiveStateSnapshot,
+  LiveStateSnapshotHandler,
+  LiveStateSubscriptionAck,
+  LiveStateSubscriptionCommand,
+} from './live-state-types';
 
 const DEFAULT_REALTIME_URL = 'wss://events.veroagents.com/ws';
 const DEFAULT_RECONNECT_INTERVAL = 1000;
@@ -68,15 +76,21 @@ export class RealtimeResource {
   private stateHandlers: Set<StateChangeHandler> = new Set();
   private errorHandlers: Set<ErrorHandler> = new Set();
 
+  // Live-state handlers
+  private liveStateSnapshotHandlers: Set<LiveStateSnapshotHandler> = new Set();
+  private liveStateDiffHandlers: Set<LiveStateDiffHandler> = new Set();
+
   // Active subscriptions for reconnection
   private activeSubscriptions: {
     eventTypes: Set<string>;
     channels: Set<string>;
     subscribedToAll: boolean;
+    tenantIds: Set<string>;
   } = {
     eventTypes: new Set(),
     channels: new Set(),
     subscribedToAll: false,
+    tenantIds: new Set(),
   };
 
   // Pending subscription confirmations
@@ -84,6 +98,33 @@ export class RealtimeResource {
     string,
     { resolve: (confirmation: SubscriptionConfirmation) => void; reject: (error: Error) => void }
   > = new Map();
+
+  // Pending live-state subscribes. The promise resolves when the *snapshot*
+  // frame lands (the ack arrives first but only signals authorization);
+  // a `subscription_error` ack short-circuits the promise with a reject.
+  private pendingLiveStateSubscribes: Map<
+    string,
+    {
+      resolve: (snapshot: LiveStateSnapshot) => void;
+      reject: (error: Error) => void;
+      timeout: ReturnType<typeof setTimeout>;
+    }
+  > = new Map();
+
+  // Pending live-state unsubscribes. Server replies with a
+  // `subscription_confirmed` ack scoped to `live_state` + action=unsubscribe.
+  private pendingLiveStateUnsubscribes: Map<
+    string,
+    {
+      resolve: () => void;
+      reject: (error: Error) => void;
+      timeout: ReturnType<typeof setTimeout>;
+    }
+  > = new Map();
+
+  // Last snapshot per tenant — answered when the same tenant subscribes
+  // twice (server is idempotent and won't resend the snapshot).
+  private lastLiveStateSnapshot: Map<string, LiveStateSnapshot> = new Map();
 
   constructor(tokenFetcher: TokenFetcher, config?: RealtimeConfig) {
     this.tokenFetcher = tokenFetcher;
@@ -303,6 +344,146 @@ export class RealtimeResource {
   }
 
   /**
+   * Subscribe to live tenant state (extensions + queues).
+   *
+   * Wire order on the server is `subscription_confirmed` → `snapshot` →
+   * diffs. The returned promise resolves with the **snapshot** (not the
+   * ack) — the ack is informational and only signals that the tenant is
+   * authorised.
+   *
+   * Idempotency: if this client is already subscribed to the tenant the
+   * server sends only an ack — no snapshot follows. We short-circuit
+   * locally by returning the cached last snapshot if one exists.
+   */
+  async subscribeLiveState(tenantId: string): Promise<LiveStateSnapshot> {
+    if (this.activeSubscriptions.tenantIds.has(tenantId)) {
+      const cached = this.lastLiveStateSnapshot.get(tenantId);
+      if (cached) {
+        return cached;
+      }
+      // Edge case: tracked as active but no snapshot ever landed (e.g. a
+      // crashed reconnect mid-snapshot). Fall through to a fresh send so
+      // we wait for a real frame instead of resolving with nothing.
+    }
+
+    if (!this.ws || this.state !== 'connected') {
+      throw new Error('Not connected');
+    }
+
+    this.activeSubscriptions.tenantIds.add(tenantId);
+
+    return new Promise<LiveStateSnapshot>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.pendingLiveStateSubscribes.delete(tenantId);
+        reject(new Error('Live-state subscription timeout'));
+      }, 10000);
+
+      this.pendingLiveStateSubscribes.set(tenantId, {
+        resolve: (snapshot) => {
+          clearTimeout(timeout);
+          resolve(snapshot);
+        },
+        reject: (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        },
+        timeout,
+      });
+
+      const command: LiveStateSubscriptionCommand = {
+        action: 'subscribe',
+        type: 'live_state',
+        tenant_id: tenantId,
+      };
+      try {
+        this.ws!.send(JSON.stringify(command));
+      } catch (err) {
+        clearTimeout(timeout);
+        this.pendingLiveStateSubscribes.delete(tenantId);
+        this.activeSubscriptions.tenantIds.delete(tenantId);
+        reject(err instanceof Error ? err : new Error(String(err)));
+      }
+    });
+  }
+
+  /**
+   * Unsubscribe a tenant's live state. Resolves on `subscription_confirmed`.
+   * Idempotent: if the tenant isn't in our active set we still send the
+   * frame to release any stale server-side state, but we don't await an
+   * ack because the server treats unknown unsubscribes as confirmed
+   * acks too.
+   */
+  async unsubscribeLiveState(tenantId: string): Promise<void> {
+    this.activeSubscriptions.tenantIds.delete(tenantId);
+    this.lastLiveStateSnapshot.delete(tenantId);
+
+    if (!this.ws || this.state !== 'connected') {
+      // Not connected — server has no per-client state to release; treat
+      // as a no-op so callers can safely call this during teardown.
+      return;
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.pendingLiveStateUnsubscribes.delete(tenantId);
+        reject(new Error('Live-state unsubscribe timeout'));
+      }, 10000);
+
+      this.pendingLiveStateUnsubscribes.set(tenantId, {
+        resolve: () => {
+          clearTimeout(timeout);
+          resolve();
+        },
+        reject: (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        },
+        timeout,
+      });
+
+      const command: LiveStateSubscriptionCommand = {
+        action: 'unsubscribe',
+        type: 'live_state',
+        tenant_id: tenantId,
+      };
+      try {
+        this.ws!.send(JSON.stringify(command));
+      } catch (err) {
+        clearTimeout(timeout);
+        this.pendingLiveStateUnsubscribes.delete(tenantId);
+        reject(err instanceof Error ? err : new Error(String(err)));
+      }
+    });
+  }
+
+  /**
+   * Register a snapshot handler — called for the initial snapshot and any
+   * subsequent reconciliation snapshots. Returns an unregister function.
+   */
+  onLiveStateSnapshot(handler: LiveStateSnapshotHandler): () => void {
+    this.liveStateSnapshotHandlers.add(handler);
+    return () => this.liveStateSnapshotHandlers.delete(handler);
+  }
+
+  /**
+   * Register a diff handler — called for every ext/queue diff frame.
+   * Returns an unregister function.
+   */
+  onLiveStateDiff(handler: LiveStateDiffHandler): () => void {
+    this.liveStateDiffHandlers.add(handler);
+    return () => this.liveStateDiffHandlers.delete(handler);
+  }
+
+  /**
+   * Tenants this client currently has live_state subscriptions for.
+   * Read-only snapshot — mutating the returned array does not affect SDK
+   * state.
+   */
+  getLiveStateTenants(): string[] {
+    return Array.from(this.activeSubscriptions.tenantIds);
+  }
+
+  /**
    * Add event handler
    */
   onEvent(handler: EventHandler): () => void {
@@ -333,6 +514,8 @@ export class RealtimeResource {
     this.eventHandlers.clear();
     this.stateHandlers.clear();
     this.errorHandlers.clear();
+    this.liveStateSnapshotHandlers.clear();
+    this.liveStateDiffHandlers.clear();
   }
 
   // Private methods
@@ -369,6 +552,62 @@ export class RealtimeResource {
     }
   }
 
+  private handleLiveStateAck(ack: LiveStateSubscriptionAck): void {
+    const tenantId = ack.tenant_id;
+    if (ack.action === 'unsubscribe') {
+      const pending = this.pendingLiveStateUnsubscribes.get(tenantId);
+      if (!pending) return;
+      this.pendingLiveStateUnsubscribes.delete(tenantId);
+      if (ack.type === 'subscription_error') {
+        pending.reject(new Error(ack.error || 'Live-state unsubscribe failed'));
+      } else {
+        pending.resolve();
+      }
+      return;
+    }
+
+    // action === 'subscribe'
+    if (ack.type === 'subscription_error') {
+      const pending = this.pendingLiveStateSubscribes.get(tenantId);
+      if (pending) {
+        this.pendingLiveStateSubscribes.delete(tenantId);
+        this.activeSubscriptions.tenantIds.delete(tenantId);
+        pending.reject(new Error(ack.error || 'Live-state subscribe failed'));
+      }
+      return;
+    }
+    // subscription_confirmed for a successful subscribe — wait for the
+    // snapshot before resolving the caller's promise.
+  }
+
+  private handleLiveStateSnapshot(snapshot: LiveStateSnapshot): void {
+    this.lastLiveStateSnapshot.set(snapshot.tenant_id, snapshot);
+
+    const pending = this.pendingLiveStateSubscribes.get(snapshot.tenant_id);
+    if (pending) {
+      this.pendingLiveStateSubscribes.delete(snapshot.tenant_id);
+      pending.resolve(snapshot);
+    }
+
+    for (const handler of this.liveStateSnapshotHandlers) {
+      try {
+        handler(snapshot);
+      } catch (error) {
+        console.error('Live-state snapshot handler error:', error);
+      }
+    }
+  }
+
+  private handleLiveStateDiff(diff: LiveStateDiff): void {
+    for (const handler of this.liveStateDiffHandlers) {
+      try {
+        handler(diff);
+      } catch (error) {
+        console.error('Live-state diff handler error:', error);
+      }
+    }
+  }
+
   private handleMessage(data: string | Buffer): void {
     try {
       const message = JSON.parse(typeof data === 'string' ? data : data.toString());
@@ -382,6 +621,13 @@ export class RealtimeResource {
 
       // Handle subscription confirmations
       if (message.type === 'subscription_confirmed' || message.type === 'subscription_error') {
+        // Live-state acks are discriminated by scope === 'live_state' +
+        // tenant_id (rather than the channel/event_type `subscriptionType`).
+        if (message.scope === 'live_state' && typeof message.tenant_id === 'string') {
+          this.handleLiveStateAck(message as LiveStateSubscriptionAck);
+          return;
+        }
+
         const confirmation = message as SubscriptionConfirmation;
         const key = this.getSubscriptionKey(confirmation);
         const pending = this.pendingSubscriptions.get(key);
@@ -393,6 +639,27 @@ export class RealtimeResource {
             pending.resolve(confirmation);
           }
         }
+        return;
+      }
+
+      // Live-state snapshot frame.
+      if (
+        message.type === 'snapshot' &&
+        message.scope === 'live_state' &&
+        typeof message.tenant_id === 'string'
+      ) {
+        const snapshot = message as LiveStateSnapshot;
+        this.handleLiveStateSnapshot(snapshot);
+        return;
+      }
+
+      // Live-state diff frame — scope discriminates ext vs queue.
+      if (
+        message.type === 'diff' &&
+        (message.scope === 'ext' || message.scope === 'queue') &&
+        typeof message.tenant_id === 'string'
+      ) {
+        this.handleLiveStateDiff(message as LiveStateDiff);
         return;
       }
 
@@ -492,7 +759,10 @@ export class RealtimeResource {
   }
 
   private async resubscribe(): Promise<void> {
-    // Re-establish subscriptions after reconnection
+    // Re-establish subscriptions after reconnection. Live_state tenant
+    // subscriptions need to be re-sent because the server keeps per-socket
+    // state and the prior socket is now gone — we keep the local tracker
+    // but the server's tenant-cleanup map dropped on disconnect.
     try {
       if (this.activeSubscriptions.subscribedToAll) {
         await this.subscribeAll();
@@ -504,6 +774,27 @@ export class RealtimeResource {
 
       if (this.activeSubscriptions.eventTypes.size > 0) {
         await this.subscribeEventTypes(Array.from(this.activeSubscriptions.eventTypes));
+      }
+
+      const tenantIds = Array.from(this.activeSubscriptions.tenantIds);
+      if (tenantIds.length > 0) {
+        // Clear local tracking so subscribeLiveState() doesn't short-circuit
+        // on the cached snapshot. We immediately re-add inside the method
+        // so the active set reflects an in-flight subscribe.
+        this.activeSubscriptions.tenantIds.clear();
+        // Fire-and-forget per tenant with isolated error handling — one
+        // tenant's failure must not block the others.
+        await Promise.all(
+          tenantIds.map((tenantId) =>
+            this.subscribeLiveState(tenantId).catch((err) => {
+              this.emitError(
+                new Error(
+                  `Failed to resubscribe live_state for tenant ${tenantId}: ${err instanceof Error ? err.message : String(err)}`
+                )
+              );
+            })
+          )
+        );
       }
     } catch (error) {
       this.emitError(new Error(`Failed to resubscribe: ${error}`));

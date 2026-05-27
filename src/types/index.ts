@@ -24,6 +24,28 @@ export interface VeroAIConfig {
   maxRetries?: number;
   /** Custom fetch implementation (for Node.js < 18 or testing) */
   fetch?: typeof fetch;
+  /**
+   * Federation config — Vero customers minting scoped end-user JWTs
+   * for their own end-users (FEDERATED.md). Distinct from `apiKey`:
+   * federation auths against authsrv directly via client_credentials,
+   * not against api.veroagents.com via the API key. Omit entirely if
+   * you don't use federation.
+   */
+  federation?: {
+    /** authsrv base URL. Default `https://auth.veroagents.com`. */
+    authsrvUrl?: string;
+    /**
+     * OAuth client credentials for the customer's M2M client.
+     * Required for mint/revoke methods on `client.federation`.
+     */
+    oauthClient?: { id: string; secret: string };
+    /**
+     * AUTHSRV_API_TOKEN — required for the key-registration methods
+     * (`registerKey` / `registerJwks` / `listKeys` / `revokeKey`).
+     * Vero ops sets this; customer SDK callers usually do not.
+     */
+    adminToken?: string;
+  };
 }
 
 // ============================================================================

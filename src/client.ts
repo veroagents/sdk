@@ -46,8 +46,11 @@ import { BrainResource } from './resources/brain';
 import { SandcastleResource } from './resources/sandcastle';
 import { TeamsResource } from './resources/teams';
 import { UsersResource } from './resources/users';
+import { FederationResource } from './resources/federation';
 import { RealtimeResource } from './realtime';
 import type { RealtimeConfig } from './realtime';
+
+const DEFAULT_AUTHSRV_URL = 'https://auth.veroagents.com';
 
 export class VeroAI {
   private readonly http: HttpClient;
@@ -98,6 +101,16 @@ export class VeroAI {
   /** Authenticate end-users for your customer-tenant apps */
   readonly users: UsersResource;
 
+  /**
+   * Federation — mint scoped Vero end-user JWTs for the customer's own
+   * end-users (FEDERATED.md). Requires `config.federation` to be set on
+   * the constructor: at minimum `oauthClient: {id, secret}` for the
+   * mint/revoke methods, OR `adminToken` for the key-registration
+   * methods. Methods without the required config throw
+   * `FederationConfigError`.
+   */
+  readonly federation: FederationResource;
+
   /** Real-time event subscriptions via WebSocket */
   readonly realtime: RealtimeResource;
 
@@ -144,6 +157,12 @@ export class VeroAI {
     this.teams = new TeamsResource(this.http);
     this.messaging = new MessagingResource(this.http);
     this.users = new UsersResource(this.http);
+    this.federation = new FederationResource({
+      authsrvUrl: config.federation?.authsrvUrl ?? DEFAULT_AUTHSRV_URL,
+      oauthClient: config.federation?.oauthClient,
+      adminToken: config.federation?.adminToken,
+      fetch: config.fetch,
+    });
 
     // Create token fetcher for realtime - exchanges API key for short-lived WebSocket JWT
     const tokenFetcher = async (): Promise<string> => {

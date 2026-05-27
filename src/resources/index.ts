@@ -11,3 +11,4 @@ export { AgentRunsResource } from './agent-runs';
 export { BrainResource } from './brain';
 export { SandcastleResource } from './sandcastle';
 export * from './users';
+export * from './federation';

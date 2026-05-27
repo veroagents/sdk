@@ -57,6 +57,9 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "dependencies": {
+    "jose": "^5.0.0"
+  },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "@types/ws": "^8.5.0",

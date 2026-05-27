@@ -178,6 +178,43 @@ export type {
   SubscriptionType,
 } from './realtime';
 
+// Realtime — live state (extensions + queues)
+export {
+  presenceFromStatus,
+  directionToUI,
+  toUIExtension,
+  toUIQueue,
+  applyExtDiff,
+  applyQueueDiff,
+  extensionsFromSnapshot,
+  queuesFromSnapshot,
+} from './realtime';
+export type {
+  LiveStateExtensionStatus,
+  LiveStateExtensionDirection,
+  LiveStateExtension,
+  LiveStateAgentState,
+  LiveStateAgent,
+  LiveStateAgentCounts,
+  LiveStateWaiting,
+  LiveStateQueue,
+  LiveStateSnapshot,
+  LiveStateExtDiff,
+  LiveStateQueueChanges,
+  LiveStateQueueDiff,
+  LiveStateDiff,
+  LiveStateSubscriptionAck,
+  LiveStateSubscriptionCommand,
+  LiveStateSnapshotHandler,
+  LiveStateDiffHandler,
+  LiveStateUIPresence,
+  LiveStateUIDirection,
+  LiveStateExtensionUI,
+  LiveStateAgentUI,
+  LiveStateWaitingUI,
+  LiveStateQueueUI,
+} from './realtime';
+
 // Agent runs
 export { AgentRunsResource } from './resources/agent-runs';
 export type {
@@ -224,6 +261,11 @@ export type {
   AuthenticateResult,
   TokenPair,
 } from './resources/users';
+
+// Mode-A federation assertion signer — customers use this to mint the
+// signed JWT that goes into `client.federation.federate({assertion})`.
+export { signAssertion, SignAssertionError } from './utils/sign-assertion';
+export type { SignAssertionParams } from './utils/sign-assertion';
 
 // Default export for convenience
 export { VeroAI as default } from './client';
